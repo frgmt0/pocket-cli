@@ -1,0 +1,24 @@
+bug:
+  - '(bug|fix|error|crash|issue|problem)'
+enhancement:
+  - '(feature|enhancement|improvement|add|new)'
+documentation:
+  - '(doc|documentation|readme|changelog)'
+question:
+  - '(help|question|support|how to)'
+workflow:
+  - '(workflow|lint|command chain)'
+backpack:
+  - '(backpack|organize|collection)'
+search:
+  - '(search|find|query|lookup)'
+ui:
+  - '(ui|interface|display|output|color)'
+performance:
+  - '(performance|speed|optimize|slow)'
+dependencies:
+  - '(dependency|dependencies|update|upgrade|version)'
+good first issue:
+  - '(beginner|starter|easy|good first issue)'
+help wanted:
+  - '(help wanted|assistance needed|looking for help)' 

@@ -1,0 +1,64 @@
+name: "Add Flares to Issues and PRs"
+
+on:
+  issues:
+    types: [labeled]
+  pull_request:
+    types: [labeled]
+
+jobs:
+  add-flares:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/github-script@v6
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const { owner, repo } = context.repo;
+            const issue_number = context.issue.number;
+            const label = context.payload.label.name;
+            
+            // Get current title
+            const { data: issue } = await github.rest.issues.get({
+              owner,
+              repo,
+              issue_number
+            });
+            
+            let title = issue.title;
+            
+            // Remove any existing emojis at the beginning
+            title = title.replace(/^(\s*)(🐛|✨|📝|❓|⚡️|🧰|🔍|🎨|⚡|📦|🔖|🆘|🚀|🧪|🔧|🔒)\s+/, '$1');
+            
+            // Add new emoji based on label
+            const flares = {
+              'bug': '🐛',
+              'enhancement': '✨',
+              'documentation': '📝',
+              'question': '❓',
+              'performance': '⚡️',
+              'backpack': '🧰',
+              'search': '🔍',
+              'ui': '🎨',
+              'workflow': '🚀',
+              'dependencies': '📦',
+              'versioning': '🔖',
+              'help wanted': '🆘',
+              'good first issue': '🧪',
+              'refactor': '🔧',
+              'security': '🔒'
+            };
+            
+            const flare = flares[label];
+            if (flare) {
+              const newTitle = `${flare} ${title}`;
+              
+              await github.rest.issues.update({
+                owner,
+                repo,
+                issue_number,
+                title: newTitle
+              });
+              
+              console.log(`Added flare ${flare} to issue/PR #${issue_number}`);
+            } 

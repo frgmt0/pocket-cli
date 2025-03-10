@@ -1,0 +1,32 @@
+workflow:
+  - .github/workflows/**/*
+  - src/commands/mod.rs
+  - 'src/**/*workflow*'
+
+documentation:
+  - '**/*.md'
+  - LICENSE
+  - .github/ISSUE_TEMPLATE/**/*
+  - .github/PULL_REQUEST_TEMPLATE/**/*
+
+backpack:
+  - 'src/**/*backpack*'
+
+search:
+  - 'src/search/**/*'
+
+ui:
+  - 'src/utils/mod.rs'
+
+core:
+  - 'src/main.rs'
+  - 'src/models/**/*'
+  - 'src/storage/**/*'
+
+dependencies:
+  - 'Cargo.toml'
+  - 'Cargo.lock'
+
+versioning:
+  - 'src/version.rs'
+  - 'CHANGELOG.md' 
