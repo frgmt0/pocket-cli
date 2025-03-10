@@ -160,6 +160,29 @@ enum Commands {
         #[arg(long, value_name = "NAME")]
         backpack: Option<String>,
     },
+
+    /// Execute a script
+    Execute {
+        /// ID of the script to execute
+        #[arg(value_name = "ID")]
+        id: Option<String>,
+        
+        /// Path to the script file to execute
+        #[arg(short, long, value_name = "FILE")]
+        file: Option<String>,
+        
+        /// Execute a script from a specific backpack
+        #[arg(short, long, value_name = "NAME")]
+        backpack: Option<String>,
+        
+        /// Skip confirmation before executing script
+        #[arg(long)]
+        no_confirm: bool,
+        
+        /// Arguments to pass to the script
+        #[arg(trailing_var_arg = true)]
+        args: Vec<String>,
+    },
 }
 
 #[derive(Subcommand)]
@@ -241,6 +264,9 @@ fn main() -> Result<()> {
         }
         Commands::Edit { id, backpack } => {
             commands::edit_command(id, backpack)?;
+        }
+        Commands::Execute { id, file, backpack, no_confirm, args } => {
+            commands::execute_command(id, file, backpack, no_confirm, args)?;
         }
     }
 
