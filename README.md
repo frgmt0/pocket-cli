@@ -167,11 +167,7 @@ New developers can instantly generate components that follow team standards, red
 Installing Pocket is as straightforward as the tool itself:
 
 ```bash
-# Install with Cargo
 cargo install pocket-cli
-
-# Or download the binary for your platform
-curl -sSL https://get.pocket-cli.dev | sh
 ```
 
 Your journey with Pocket begins with a simple save:
@@ -255,7 +251,7 @@ For example:
 - `v-pocket-R2-nc`: Second stable release, not compatible with previous versions
 - `v-pocket-R3-nc1<`: Third stable release, only compatible with version 1 and newer
 
-Current version: `v-pocket-R1` (Workflow Files)
+> Current version: `v-pocket-R1` (Workflow Files)
 
 You can view detailed version information with:
 ```bash
