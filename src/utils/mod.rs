@@ -69,6 +69,7 @@ pub fn open_editor_with_type(content_type: ContentType, initial_content: Option<
     let extension = match content_type {
         ContentType::Code => ".rs", // Default to Rust, but could be more specific
         ContentType::Text => ".txt",
+        ContentType::Script => ".sh",
         ContentType::Other(ref lang) => {
             match lang.as_str() {
                 "javascript" | "js" => ".js",
@@ -117,6 +118,7 @@ pub fn open_editor_with_type(content_type: ContentType, initial_content: Option<
                 _ => "// Code snippet\n\n// Your code here\n"
             },
             ContentType::Text => "# Title\n\nYour text here...\n",
+            ContentType::Script => "#!/bin/bash\n\n# Your script here\necho \"Hello, world!\"\n",
             ContentType::Other(_) => "# Content\n\nYour content here...\n"
         };
         fs::write(&temp_path, template)?;
@@ -189,77 +191,89 @@ fn get_editor() -> Result<String> {
 
 /// Detect content type from extension or content
 pub fn detect_content_type(path: Option<&Path>, content: Option<&str>) -> ContentType {
-    // First try to detect from file extension
+    // Check file extension first if path is provided
     if let Some(path) = path {
-        if let Some(ext) = path.extension() {
-            if let Some(ext_str) = ext.to_str() {
-                match ext_str.to_lowercase().as_str() {
-                    "rs" | "go" | "js" | "ts" | "py" | "rb" | "java" | "c" | "cpp" | "h" | "hpp" | "cs" | 
-                    "php" | "swift" | "kt" | "scala" | "hs" | "ex" | "exs" | "erl" | "clj" | "elm" => {
-                        return ContentType::Code;
-                    },
-                    "html" | "css" | "scss" | "sass" | "less" | "xml" | "json" | "yaml" | "yml" | "toml" | 
-                    "sql" | "graphql" | "md" | "markdown" => {
-                        return ContentType::Other(ext_str.to_string());
-                    },
-                    "txt" | "log" | "text" => {
-                        return ContentType::Text;
-                    },
-                    _ => {}
-                }
+        if let Some(extension) = path.extension().and_then(|e| e.to_str()) {
+            match extension.to_lowercase().as_str() {
+                "rs" => return ContentType::Code,
+                "go" => return ContentType::Code,
+                "js" | "ts" => return ContentType::Code,
+                "py" => return ContentType::Code,
+                "java" => return ContentType::Code,
+                "c" | "cpp" | "h" | "hpp" => return ContentType::Code,
+                "cs" => return ContentType::Code,
+                "rb" => return ContentType::Code,
+                "php" => return ContentType::Code,
+                "html" | "htm" => return ContentType::Other("html".to_string()),
+                "css" => return ContentType::Other("css".to_string()),
+                "json" => return ContentType::Other("json".to_string()),
+                "yaml" | "yml" => return ContentType::Other("yaml".to_string()),
+                "md" | "markdown" => return ContentType::Other("markdown".to_string()),
+                "sql" => return ContentType::Other("sql".to_string()),
+                "sh" | "bash" | "zsh" => return ContentType::Script,
+                _ => {}
+            }
+        }
+        
+        // Check filename for specific patterns
+        if let Some(filename) = path.file_name().and_then(|f| f.to_str()) {
+            if filename.starts_with("Dockerfile") {
+                return ContentType::Other("dockerfile".to_string());
+            }
+            
+            if filename == "Makefile" || filename == "makefile" {
+                return ContentType::Other("makefile".to_string());
             }
         }
     }
     
-    // If no extension or unknown, try to detect from content
+    // Check content if provided
     if let Some(content) = content {
-        let trimmed = content.trim();
+        // Check for shebang line
+        if content.starts_with("#!/bin/sh") || 
+           content.starts_with("#!/bin/bash") || 
+           content.starts_with("#!/usr/bin/env bash") ||
+           content.starts_with("#!/bin/zsh") || 
+           content.starts_with("#!/usr/bin/env zsh") {
+            return ContentType::Script;
+        }
         
         // Check for common code patterns
+        let trimmed = content.trim();
         if trimmed.starts_with("#include") || trimmed.starts_with("#define") || 
            trimmed.starts_with("import ") || trimmed.starts_with("from ") || 
-           trimmed.starts_with("package ") || trimmed.starts_with("using ") || 
-           trimmed.starts_with("func ") || trimmed.starts_with("def ") || 
-           trimmed.starts_with("class ") || trimmed.starts_with("function ") || 
-           trimmed.starts_with("var ") || trimmed.starts_with("let ") || 
-           trimmed.starts_with("const ") || trimmed.contains("{") && trimmed.contains("}") {
+           trimmed.starts_with("package ") || trimmed.starts_with("using ") ||
+           trimmed.starts_with("function ") || trimmed.starts_with("def ") ||
+           trimmed.starts_with("class ") || trimmed.starts_with("struct ") ||
+           trimmed.starts_with("enum ") || trimmed.starts_with("interface ") ||
+           trimmed.contains("public class ") || trimmed.contains("private class ") ||
+           trimmed.contains("fn ") || trimmed.contains("pub fn ") ||
+           trimmed.contains("impl ") || trimmed.contains("trait ") {
             return ContentType::Code;
         }
         
-        // Check for HTML/XML
-        if trimmed.starts_with("<") && trimmed.ends_with(">") || 
-           trimmed.contains("<!DOCTYPE") || trimmed.contains("<html") {
-            return ContentType::Other("html".to_string());
-        }
-        
         // Check for JSON
-        if (trimmed.starts_with("{") && trimmed.ends_with("}")) || 
-           (trimmed.starts_with("[") && trimmed.ends_with("]")) {
+        if (trimmed.starts_with('{') && trimmed.ends_with('}')) ||
+           (trimmed.starts_with('[') && trimmed.ends_with(']')) {
             return ContentType::Other("json".to_string());
         }
         
-        // Check for YAML
-        if trimmed.contains(":") && !trimmed.contains("{") && !trimmed.contains("<") {
-            return ContentType::Other("yaml".to_string());
-        }
-        
-        // Check for SQL
-        if trimmed.to_uppercase().contains("SELECT ") || 
-           trimmed.to_uppercase().contains("INSERT ") || 
-           trimmed.to_uppercase().contains("UPDATE ") || 
-           trimmed.to_uppercase().contains("DELETE ") || 
-           trimmed.to_uppercase().contains("CREATE TABLE") {
-            return ContentType::Other("sql".to_string());
+        // Check for HTML
+        if trimmed.starts_with("<!DOCTYPE html>") || 
+           trimmed.starts_with("<html>") || 
+           trimmed.contains("<body>") {
+            return ContentType::Other("html".to_string());
         }
         
         // Check for Markdown
-        if trimmed.starts_with("#") || trimmed.contains("##") || 
-           trimmed.contains("```") || trimmed.contains("===") {
+        if trimmed.starts_with("# ") || 
+           trimmed.contains("\n## ") || 
+           trimmed.contains("\n### ") {
             return ContentType::Other("markdown".to_string());
         }
     }
     
-    // Default to text if we can't determine the type
+    // Default to text
     ContentType::Text
 }
 

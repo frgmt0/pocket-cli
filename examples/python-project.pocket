@@ -1,0 +1,23 @@
+# Python Project Setup Workflow
+# 
+# This workflow:
+# 1. Executes the Python project setup script to create a new Python project
+# 2. Inserts a template from the templates backpack into the project's spec.md file
+#
+# After running this workflow, your Python project will be fully set up with:
+# - Modern project structure with src/ layout
+# - Virtual environment using uv
+# - Pytest configuration
+# - Code formatting tools (black, isort, ruff)
+# - Project specification from your templates
+
+# Step 1: Run the Python project setup script
+# This will create the project structure and prompt for location
+# Note: The -f flag specifies that we're executing from a file
+# You don't need to chmod +x the script first - Pocket handles permissions automatically
+execute -f examples/simple-python-setup.sh
+
+# Step 2: Insert the template into spec.md
+# Uses Pocket's built-in insert command to add the template content
+# The file path is specified to avoid prompting
+insert 94b350c8-67f4-427e-9dda-8fb3d042c4bb --backpack templates --file /Users/jason/Code/dev/my_python_project/spec.md --no-confirm

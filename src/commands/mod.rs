@@ -5,6 +5,9 @@ use crate::utils;
 use anyhow::{Result, anyhow, Context};
 use std::path::Path;
 use owo_colors::OwoColorize;
+use std::process::Command;
+use dialoguer::Confirm;
+use std::fs;
 
 /// Add content to pocket storage
 pub fn add_command(
@@ -603,6 +606,140 @@ fn execute_command_chain(chain: &str) -> Result<()> {
                     false,
                 )?;
             }
+            "insert" => {
+                if cmd.args.is_empty() {
+                    return Err(anyhow!("Insert command requires a template ID"));
+                }
+                
+                let template_id = cmd.args[0].clone();
+                let mut file = None;
+                let mut no_confirm = false;
+                let mut backpack = None;
+                
+                // Parse arguments
+                let mut i = 1;
+                while i < cmd.args.len() {
+                    match cmd.args[i].as_str() {
+                        "--file" | "-f" => {
+                            if i + 1 < cmd.args.len() {
+                                file = Some(cmd.args[i + 1].clone());
+                                i += 2;
+                            } else {
+                                return Err(anyhow!("--file requires a file path"));
+                            }
+                        }
+                        "--no-confirm" => {
+                            no_confirm = true;
+                            i += 1;
+                        }
+                        "--backpack" | "-b" => {
+                            if i + 1 < cmd.args.len() {
+                                backpack = Some(cmd.args[i + 1].clone());
+                                i += 2;
+                            } else {
+                                return Err(anyhow!("--backpack requires a backpack name"));
+                            }
+                        }
+                        _ => {
+                            i += 1;
+                        }
+                    }
+                }
+                
+                // Load the entry from the specified backpack
+                let storage = StorageManager::new()?;
+                let (entry, content) = storage.load_entry(&template_id, backpack.as_deref())?;
+                
+                // Determine the target file
+                let target_file = if let Some(file_path) = file {
+                    file_path
+                } else {
+                    // Prompt for a file path
+                    utils::input::<String>("Enter target file path:", None)?
+                };
+                
+                // Read the target file if it exists
+                let path = Path::new(&target_file);
+                let existing_content = if path.exists() {
+                    utils::read_file_content(path)?
+                } else {
+                    String::new()
+                };
+                
+                // Prepare the content to insert with delimiters
+                let delim = "---".to_string();
+                let content_with_delimiters = format!(
+                    "\n{} BEGIN POCKET ENTRY: {} - {} {}\n{}\n{} END POCKET ENTRY {}\n",
+                    delim, entry.id, entry.title, delim, content, delim, delim
+                );
+                
+                // Show a preview
+                println!("Will insert the following content into '{}':", target_file);
+                println!("{}", utils::truncate_string(&content_with_delimiters, 200));
+                
+                // Confirm unless no_confirm is set
+                if !no_confirm {
+                    let confirmed = utils::confirm("Proceed with insertion?", true)?;
+                    if !confirmed {
+                        println!("Operation cancelled");
+                        return Ok(());
+                    }
+                }
+                
+                // Write the content to the file
+                let new_content = format!("{}{}", existing_content, content_with_delimiters);
+                std::fs::write(path, new_content)?;
+                
+                println!("Content inserted successfully into '{}'", target_file);
+            }
+            "execute" => {
+                if cmd.args.is_empty() {
+                    return Err(anyhow!("Execute command requires an ID or file path"));
+                }
+                
+                if cmd.args[0] == "-b" || cmd.args[0] == "--backpack" {
+                    if cmd.args.len() < 3 {
+                        return Err(anyhow!("Execute command with backpack requires an ID"));
+                    }
+                    
+                    let script_id = cmd.args[2].clone();
+                    let backpack = Some(cmd.args[1].clone());
+                    let script_args = if cmd.args.len() > 3 {
+                        cmd.args[3..].to_vec()
+                    } else {
+                        Vec::new()
+                    };
+                    
+                    execute_command(Some(script_id), None, backpack, true, script_args)?;
+                } else if cmd.args[0] == "-f" || cmd.args[0] == "--file" {
+                    if cmd.args.len() < 2 {
+                        return Err(anyhow!("Execute command with file requires a file path"));
+                    }
+                    
+                    let file_path = cmd.args[1].clone();
+                    let script_args = if cmd.args.len() > 2 {
+                        cmd.args[2..].to_vec()
+                    } else {
+                        Vec::new()
+                    };
+                    
+                    execute_command(None, Some(file_path), None, true, script_args)?;
+                } else {
+                    // Assume the first argument is an ID or file path
+                    let first_arg = cmd.args[0].clone();
+                    let script_args = if cmd.args.len() > 1 {
+                        cmd.args[1..].to_vec()
+                    } else {
+                        Vec::new()
+                    };
+                    
+                    if Path::new(&first_arg).exists() {
+                        execute_command(None, Some(first_arg), None, true, script_args)?;
+                    } else {
+                        execute_command(Some(first_arg), None, None, true, script_args)?;
+                    }
+                }
+            }
             "save" => {
                 // Skip save command in direct execution
                 continue;
@@ -662,4 +799,208 @@ pub fn edit_command(
     
     println!("Entry {} updated successfully.", id.cyan());
     Ok(id)
+}
+
+/// Execute a script
+pub fn execute_command(
+    id: Option<String>,
+    file: Option<String>,
+    backpack: Option<String>,
+    no_confirm: bool,
+    args: Vec<String>,
+) -> Result<()> {
+    let storage = StorageManager::new()?;
+    
+    // Function to execute a script with the given content and title
+    let execute_script = |content: &str, title: &str| -> Result<()> {
+        // Security warning for script execution
+        if !no_confirm {
+            println!("{}", "⚠️  Warning: Script execution can be dangerous! ⚠️".yellow().bold());
+            println!("You're about to execute: {}", title.cyan());
+            let args_str = if args.is_empty() { "[none]".to_string() } else { args.join(" ") };
+            println!("Arguments: {}", args_str);
+            
+            if !Confirm::new()
+                .with_prompt("Do you want to proceed?")
+                .default(false)
+                .interact()?
+            {
+                return Ok(());
+            }
+        }
+        
+        println!("Executing script: {}", title);
+        
+        // Determine shell command based on OS
+        let (shell, flag) = if cfg!(target_os = "windows") {
+            ("cmd", "/C")
+        } else {
+            ("sh", "-c")
+        };
+        
+        // Build the command
+        let mut cmd = Command::new(shell);
+        
+        if cfg!(target_os = "windows") {
+            // On Windows, join arguments into the script content
+            let full_command = if args.is_empty() {
+                content.to_string()
+            } else {
+                format!("{} {}", content, args.join(" "))
+            };
+            cmd.arg(flag).arg(full_command);
+        } else {
+            // On Unix, pass args as separate arguments
+            cmd.arg(flag).arg(content);
+            
+            // Add arguments as separate args
+            for arg in &args {
+                cmd.arg(arg);
+            }
+        }
+        
+        // Execute the command
+        let output = match cmd.output() {
+            Ok(output) => output,
+            Err(e) => return Err(anyhow!("Failed to execute script: {} ({})", title, e)),
+        };
+        
+        // Print output
+        if !output.stdout.is_empty() {
+            println!("{}", String::from_utf8_lossy(&output.stdout));
+        }
+        
+        if !output.stderr.is_empty() {
+            eprintln!("{}", String::from_utf8_lossy(&output.stderr).red());
+        }
+        
+        // Check exit status and report
+        if !output.status.success() {
+            println!("{} Script exited with status: {}", "Error:".red().bold(), 
+                output.status.code().map_or("unknown".to_string(), |c| c.to_string()).red());
+        }
+        
+        Ok(())
+    };
+    
+    if let Some(file_path) = file {
+        // Execute script from file
+        let path = Path::new(&file_path);
+        if !path.exists() {
+            return Err(anyhow!("Script file not found: {}", file_path));
+        }
+        
+        // Read the file content
+        let content = utils::read_file_content(path)?;
+        
+        // Check if the file is executable
+        #[cfg(unix)]
+        let (was_executable, made_executable) = ensure_executable(path)?;
+        
+        // Execute the script
+        let result = execute_script(&content, &file_path);
+        
+        // Restore original permissions if we changed them
+        #[cfg(unix)]
+        if made_executable && !was_executable {
+            restore_permissions(path, was_executable)?;
+        }
+        
+        // Handle result after permissions are restored
+        result?;
+        
+        // Ask if the user wants to add this script to the scripts backpack
+        if !no_confirm && Confirm::new()
+            .with_prompt("Would you like to add this to executable scripts?")
+            .default(false)
+            .interact()?
+        {
+            // Create scripts backpack if it doesn't exist
+            let scripts_backpack = Backpack::new("scripts".to_string(), Some("Executable scripts".to_string()));
+            if let Err(e) = storage.create_backpack(&scripts_backpack) {
+                // Ignore error if backpack already exists
+                if !e.to_string().contains("already exists") {
+                    return Err(e);
+                }
+            }
+            
+            // Add the script to the scripts backpack
+            let title = path.file_name()
+                .and_then(|n| n.to_str())
+                .unwrap_or("script")
+                .to_string();
+            
+            let mut entry = Entry::new(
+                title,
+                ContentType::Script,
+                Some(file_path),
+                vec!["executable".to_string()]
+            );
+            
+            // Add example usage as a custom metadata field
+            if !args.is_empty() {
+                entry.tags.push(format!("args:{}", args.join(" ")));
+            }
+            
+            storage.save_entry(&entry, &content, Some("scripts"))?;
+            
+            println!("Script added to scripts backpack with ID: {}", entry.id);
+        }
+        
+        return Ok(());
+    } else if let Some(id) = id {
+        // Execute script from storage
+        let backpack_name = backpack.as_deref().unwrap_or("scripts");
+        
+        // Load the script
+        let (entry, content) = storage.load_entry(&id, Some(backpack_name))
+            .with_context(|| format!("Failed to load script with ID: {} from backpack: {}", id, backpack_name))?;
+        
+        // Execute the script
+        execute_script(&content, &entry.title)?;
+        
+        return Ok(());
+    }
+    
+    return Err(anyhow!("No script provided. Use --file or provide an ID"));
+}
+
+/// Check if a file is executable and make it executable if needed
+#[cfg(unix)]
+fn ensure_executable(path: &Path) -> Result<(bool, bool)> {
+    use std::os::unix::fs::PermissionsExt;
+    
+    // Get current permissions
+    let metadata = fs::metadata(path)?;
+    let mut perms = metadata.permissions();
+    
+    // Check if file is already executable by the owner
+    let is_executable = perms.mode() & 0o100 != 0;
+    
+    // If not executable, make it executable
+    if !is_executable {
+        perms.set_mode(perms.mode() | 0o100); // Add owner executable bit
+        fs::set_permissions(path, perms)?;
+        // Return (was_executable, made_executable)
+        Ok((false, true))
+    } else {
+        // Already executable, no changes made
+        Ok((true, false))
+    }
+}
+
+/// Restore original permissions
+#[cfg(unix)]
+fn restore_permissions(path: &Path, was_executable: bool) -> Result<()> {
+    use std::os::unix::fs::PermissionsExt;
+    
+    if !was_executable {
+        let metadata = fs::metadata(path)?;
+        let mut perms = metadata.permissions();
+        // Remove executable bit
+        perms.set_mode(perms.mode() & !0o100);
+        fs::set_permissions(path, perms)?;
+    }
+    
+    Ok(())
 } 

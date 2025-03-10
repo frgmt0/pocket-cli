@@ -34,6 +34,7 @@ pub struct Entry {
 pub enum ContentType {
     Code,
     Text,
+    Script,
     Other(String),
 }
 
