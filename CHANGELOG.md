@@ -2,6 +2,26 @@
 
 All notable changes to Pocket will be documented in this file using our letter-based versioning system.
 
+## v-pocket-R2B2-nc (03122025 - Bash Scripting Support)
+
+### Added
+- Automatic permission handling for script execution
+- Support for executing non-executable scripts with automatic permission management
+- Added `-f` flag to the execute command to specify script files
+- Enhanced workflow support for script execution
+- Python project setup workflow example
+- Improved template insertion in workflows
+
+### Changed
+- Updated command parsing to better handle script arguments
+- Enhanced error handling for script execution
+- Improved workflow documentation with examples
+
+### Fixed
+- Fixed issues with script execution in workflows
+- Improved handling of file paths in insert commands
+- Fixed permission restoration after script execution
+
 ## v-pocket-R2B1 (03112025 - Enhanced Editor)
 
 ### Added
