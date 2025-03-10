@@ -4,6 +4,7 @@ use crate::search::SearchEngine;
 use crate::utils;
 use anyhow::{Result, anyhow, Context};
 use std::path::Path;
+use owo_colors::OwoColorize;
 
 /// Add content to pocket storage
 pub fn add_command(
@@ -21,49 +22,60 @@ pub fn add_command(
             return Err(anyhow!("File not found: {}", file_path));
         }
         
-        let content_type = StorageManager::determine_content_type(path);
+        // Detect content type from file
+        let content_type = utils::detect_content_type(Some(path), None);
         let content = utils::read_file_content(path)?;
-        let title = utils::get_title_from_content(&content);
         
-        let entry = Entry::new(
-            title,
-            content_type,
-            Some(file_path),
-            Vec::new(),
-        );
+        // Create and save entry
+        let title = content.lines().next().unwrap_or("").to_string();
+        let entry = Entry::new(title, content_type, Some(file_path), vec![]);
         
         storage.save_entry(&entry, &content, backpack.as_deref())?;
         
         entry.id
-    } else if let Some(msg) = message {
-        let content_type = ContentType::Text;
-        let title = utils::get_title_from_content(&msg);
+    } else if let Some(message) = message {
+        // Detect content type from message
+        let content_type = utils::detect_content_type(None, Some(&message));
         
-        let entry = Entry::new(
-            title,
-            content_type,
-            None,
-            Vec::new(),
-        );
+        // Create and save entry
+        let title = message.lines().next().unwrap_or("").to_string();
+        let entry = Entry::new(title, content_type, None, vec![]);
         
-        storage.save_entry(&entry, &msg, backpack.as_deref())?;
+        storage.save_entry(&entry, &message, backpack.as_deref())?;
         
         entry.id
     } else if editor {
-        let content = utils::open_editor(None)?;
+        // Open editor for user to enter content
+        println!("Opening editor. Write your content and save it to add it to Pocket.");
+        
+        // First detect a reasonable default content type based on backpack name
+        let default_content_type = if let Some(backpack_name) = &backpack {
+            match backpack_name.to_lowercase().as_str() {
+                "rust" | "go" | "js" | "javascript" | "ts" | "typescript" | "py" | "python" | 
+                "java" | "c" | "cpp" | "cs" | "csharp" => ContentType::Code,
+                "html" | "css" | "web" => ContentType::Other(backpack_name.to_lowercase()),
+                "markdown" | "md" | "docs" => ContentType::Other("markdown".to_string()),
+                "sql" | "database" => ContentType::Other("sql".to_string()),
+                "json" | "yaml" | "config" => ContentType::Other(backpack_name.to_lowercase()),
+                _ => ContentType::Text,
+            }
+        } else {
+            ContentType::Text
+        };
+        
+        // Open editor with appropriate syntax highlighting
+        let content = utils::open_editor_with_type(default_content_type, None)?;
+        
         if content.trim().is_empty() {
             return Err(anyhow!("Empty content, nothing to save"));
         }
         
-        let content_type = ContentType::Text;
-        let title = utils::get_title_from_content(&content);
+        // Detect content type from what was entered
+        let content_type = utils::detect_content_type(None, Some(&content));
         
-        let entry = Entry::new(
-            title,
-            content_type,
-            None,
-            Vec::new(),
-        );
+        // Create and save entry
+        let title = content.lines().next().unwrap_or("").to_string();
+        let entry = Entry::new(title, content_type, None, vec![]);
         
         storage.save_entry(&entry, &content, backpack.as_deref())?;
         
@@ -612,4 +624,42 @@ pub fn delete_workflow_command(name: String) -> Result<()> {
     println!("Workflow '{}' deleted successfully", name);
     
     Ok(())
+}
+
+/// Edit an existing entry
+pub fn edit_command(
+    id: String,
+    backpack: Option<String>,
+) -> Result<String> {
+    let storage = StorageManager::new()?;
+    
+    // Load the entry
+    let (entry, content) = storage.load_entry(&id, backpack.as_deref())?;
+    
+    // Open the editor
+    let updated_content = utils::edit_entry(&id, &content, entry.content_type.clone())?;
+    
+    // Check if the content actually changed
+    if content == updated_content {
+        println!("No changes made to the entry.");
+        return Ok(id);
+    }
+    
+    // Create a new entry with updated content
+    let title = updated_content.lines().next().unwrap_or("").to_string();
+    let updated_entry = Entry {
+        id: entry.id.clone(),
+        title,
+        created_at: entry.created_at,
+        updated_at: chrono::Utc::now(),
+        source: entry.source,
+        tags: entry.tags,
+        content_type: utils::detect_content_type(None, Some(&updated_content)),
+    };
+    
+    // Save the updated entry
+    storage.save_entry(&updated_entry, &updated_content, backpack.as_deref())?;
+    
+    println!("Entry {} updated successfully.", id.cyan());
+    Ok(id)
 } 

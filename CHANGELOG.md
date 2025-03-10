@@ -2,6 +2,25 @@
 
 All notable changes to Pocket will be documented in this file using our letter-based versioning system.
 
+## v-pocket-R2B1 (03112025 - Enhanced Editor)
+
+### Added
+- Enhanced editor mode with syntax highlighting based on content type
+- Automatic content type detection from file extensions and content patterns
+- Language-specific templates for different content types
+- Ability to edit existing entries with the new `edit` command
+- Custom file extensions for better syntax highlighting in editors
+- Smart selection of templates based on backpack names
+
+### Changed
+- Improved editor experience with better feedback to users
+- More intelligent title extraction from content
+- Detect and use user's preferred editor from system environment or configuration
+
+### Fixed
+- Fixed issues with temporary files not being properly cleaned up
+- Improved error handling for editor interactions
+
 ## v-pocket-R1 (03102025 - Workflow Files)
 
 ### Added

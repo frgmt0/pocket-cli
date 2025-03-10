@@ -149,6 +149,17 @@ enum Commands {
 
     /// Display version information
     Version,
+
+    /// Edit an existing entry
+    Edit {
+        /// ID of the entry to edit
+        #[arg(value_name = "ID")]
+        id: String,
+
+        /// Specify which backpack to edit from
+        #[arg(long, value_name = "NAME")]
+        backpack: Option<String>,
+    },
 }
 
 #[derive(Subcommand)]
@@ -227,6 +238,9 @@ fn main() -> Result<()> {
             println!("Internal Date: {}", version.date);
             println!("Cargo SemVer: {} (required for Rust ecosystem)", version.semver);
             println!("\nFor full changelog, see: https://github.com/username/pocket/blob/main/CHANGELOG.md");
+        }
+        Commands::Edit { id, backpack } => {
+            commands::edit_command(id, backpack)?;
         }
     }
 

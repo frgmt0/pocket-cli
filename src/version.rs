@@ -4,13 +4,13 @@
 /// and our letter-based versioning system that prioritizes communication
 
 /// The current version in letter-based format
-pub const VERSION_LETTER: &str = "v-pocket-R1";
+pub const VERSION_LETTER: &str = "v-pocket-R2B1";
 
 /// The current version as a date string (MMDDYYYY) - for internal tracking
-pub const VERSION_DATE: &str = "03102025";
+pub const VERSION_DATE: &str = "03112025";
 
 /// The current version as a human-readable string
-pub const VERSION_STRING: &str = "Pocket v-pocket-R1 (03102025 - Workflow Files)";
+pub const VERSION_STRING: &str = "Pocket v-pocket-R2B1 (03112025 - Enhanced Editor)";
 
 /// Compatibility information
 pub const COMPATIBILITY: Option<&str> = None; // None means fully compatible
@@ -36,7 +36,7 @@ pub fn get_version() -> Version {
         letter: VERSION_LETTER,
         date: VERSION_DATE,
         semver: env!("CARGO_PKG_VERSION"),
-        name: "Workflow Files",
+        name: "Enhanced Editor",
         compatibility: COMPATIBILITY,
         stability: Stability::Release,
     }
