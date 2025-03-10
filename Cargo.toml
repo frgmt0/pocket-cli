@@ -6,6 +6,11 @@ description = "A CLI tool for saving, organizing, and retrieving code snippets"
 authors = ["frgmt0"]
 license = "MIT"
 
+# Define the binary name as 'pocket' instead of the default 'pocket-cli'
+[[bin]]
+name = "pocket"
+path = "src/main.rs"
+
 [dependencies]
 clap = { version = "4.4", features = ["derive"] }
 serde = { version = "1.0", features = ["derive"] }

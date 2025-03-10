@@ -19,7 +19,7 @@ All notable changes to Pocket will be documented in this file using our letter-b
 ### Fixed
 - Issue with workflow command parsing when using the save operation
 
-## v-pocket-B2 (02152025 - Backpacks)
+## v-pocket-B2 (03092025 - Backpacks)
 
 ### Added
 - Backpack feature for organizing related snippets
@@ -31,7 +31,7 @@ All notable changes to Pocket will be documented in this file using our letter-b
 - Storage structure to support backpack organization
 - Command-line interface to include backpack options
 
-## v-pocket-A1 (01052025 - Initial Release)
+## v-pocket-A1 (02122025 - Initial Release)
 
 ### Added
 - Basic snippet storage and retrieval
