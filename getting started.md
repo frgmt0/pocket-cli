@@ -1,14 +1,14 @@
 # Add from a file
-pocket add path/to/brilliant/solution.js
+`pocket add path/to/brilliant/solution.js`
 
 # Add directly from your thoughts
-pocket add -m "SELECT * FROM users WHERE sanity > 0;"
+`pocket add -m "SELECT * FROM users WHERE sanity > 0;"`
 
 # Open your editor when inspiration strikes
-pocket add -e
+`pocket add -e`
 
 # Open your editor with syntax highlighting specific to a backpack
-pocket add -e -b javascript
+`pocket add -e -b javascript`
 
 Later, when you need to find that solution, you don't need to remember exactly what you called it or where you put it. You can search with natural language, describing the problem it solves rather than its exact syntax:
 
