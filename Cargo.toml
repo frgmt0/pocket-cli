@@ -1,0 +1,22 @@
+[package]
+name = "pocket-cli"
+version = "0.1.0"
+edition = "2021"
+description = "A CLI tool for saving, organizing, and retrieving code snippets"
+authors = ["frgmt0"]
+license = "MIT"
+
+[dependencies]
+clap = { version = "4.4", features = ["derive"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+chrono = { version = "0.4", features = ["serde"] }
+dirs = "6.0"
+uuid = { version = "1.6", features = ["v4", "serde"] }
+owo-colors = "4.2"
+dialoguer = "0.11"
+indicatif = "0.17"
+similar = "2.4"
+thiserror = "2.0"
+anyhow = "1.0"
+toml = "0.8"

@@ -1,0 +1,11 @@
+# Workflow for starting a new Rust project
+# Each line is executed as a command chain
+
+# First, search for Rust project setup snippets
+search "cargo new project setup"
+
+# Then search for common Rust dependencies
+search "rust common dependencies Cargo.toml"
+
+# Look for error handling patterns
+search "rust error handling anyhow" 
