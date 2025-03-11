@@ -10,7 +10,8 @@ use pocket::vcs::commands::{
     interactive_shove_command, 
     interactive_timeline_command,
     log_command,
-    graph_command
+    graph_command,
+    ignore_command
 };
 
 #[derive(Parser)]
@@ -152,6 +153,25 @@ enum Commands {
         #[arg(short, long, default_value = ".")]
         path: PathBuf,
     },
+    
+    /// 🚫 Manage ignore patterns
+    Ignore {
+        /// Add a new ignore pattern
+        #[arg(short, long)]
+        add: Option<String>,
+        
+        /// Remove an ignore pattern
+        #[arg(short, long)]
+        remove: Option<String>,
+        
+        /// List all ignore patterns
+        #[arg(short, long)]
+        list: bool,
+        
+        /// Repository path
+        #[arg(short, long, default_value = ".")]
+        path: PathBuf,
+    },
 }
 
 #[derive(Subcommand)]
@@ -262,6 +282,12 @@ fn main() -> Result<()> {
             if let Err(e) = graph_command(path) {
                 eprintln!("{} {}", "❌".red(), format!("Error: {}", e).red());
                 process::exit(1);
+            }
+        },
+        Commands::Ignore { add, remove, list, path } => {
+            if let Err(e) = ignore_command(&path, add.as_deref(), remove.as_deref(), list) {
+                eprintln!("Error: {}", e);
+                std::process::exit(1);
             }
         },
     }

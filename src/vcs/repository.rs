@@ -36,26 +36,26 @@ pub enum RepositoryError {
 }
 
 /// Repository configuration
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Config {
     pub user: UserConfig,
     pub core: CoreConfig,
     pub remote: RemoteConfig,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct UserConfig {
     pub name: String,
     pub email: String,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct CoreConfig {
     pub default_timeline: String,
     pub ignore_patterns: Vec<String>,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct RemoteConfig {
     pub default_remote: Option<String>,
 }
@@ -297,8 +297,24 @@ impl Repository {
             return true;
         }
 
+        // Check if .pocketignore file exists and read patterns from it
+        let ignore_path = self.path.join(".pocketignore");
+        let ignore_patterns = if ignore_path.exists() {
+            match std::fs::read_to_string(&ignore_path) {
+                Ok(content) => {
+                    content.lines()
+                        .filter(|line| !line.trim().is_empty() && !line.trim().starts_with('#'))
+                        .map(|line| line.trim().to_string())
+                        .collect::<Vec<String>>()
+                },
+                Err(_) => self.config.core.ignore_patterns.clone(),
+            }
+        } else {
+            self.config.core.ignore_patterns.clone()
+        };
+
         // Check against ignore patterns
-        for pattern in &self.config.core.ignore_patterns {
+        for pattern in &ignore_patterns {
             if let Ok(matcher) = glob::Pattern::new(pattern) {
                 if let Ok(relative_path) = path.strip_prefix(&self.path) {
                     if matcher.matches_path(relative_path) {

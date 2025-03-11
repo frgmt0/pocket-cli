@@ -476,19 +476,55 @@ pub fn pile_command(path: &Path, files: Vec<&Path>, all: bool, pattern: Option<&
     let mut pile = repo.pile.clone();
     let mut added_count = 0;
     
+    // Read ignore patterns from .pocketignore if it exists
+    let ignore_path = repo.path.join(".pocketignore");
+    let ignore_patterns = if ignore_path.exists() {
+        read_ignore_patterns(&ignore_path)?
+    } else {
+        repo.config.core.ignore_patterns.clone()
+    };
+    
+    // Function to check if a file should be ignored
+    let should_ignore = |file_path: &Path| -> bool {
+        // Skip files in .git, .pocket, or other VCS directories
+        if file_path.to_string_lossy().contains("/.pocket/") || 
+           file_path.to_string_lossy().contains("/.git/") {
+            return true;
+        }
+        
+        // Check if the file matches any ignore pattern
+        let relative_path = if let Ok(rel_path) = file_path.strip_prefix(&repo.path) {
+            rel_path
+        } else {
+            file_path
+        };
+        
+        ignore_patterns.iter().any(|pattern| {
+            if let Ok(glob_pattern) = glob::Pattern::new(pattern) {
+                glob_pattern.matches_path(relative_path)
+            } else {
+                false
+            }
+        })
+    };
+    
     // If --all flag is provided, add all modified files
     if all {
         let status = repo.status()?;
         for file_path in &status.modified_files {
-            pile.add_path(file_path, &repo.object_store)?;
-            println!("{} {}", "✅".green(), format!("Added: {}", file_path.display()).bright_white());
-            added_count += 1;
+            if !should_ignore(file_path) {
+                pile.add_path(file_path, &repo.object_store)?;
+                println!("{} {}", "✅".green(), format!("Added: {}", file_path.display()).bright_white());
+                added_count += 1;
+            }
         }
         
         for file_path in &status.untracked_files {
-            pile.add_path(file_path, &repo.object_store)?;
-            println!("{} {}", "✅".green(), format!("Added: {}", file_path.display()).bright_white());
-            added_count += 1;
+            if !should_ignore(file_path) {
+                pile.add_path(file_path, &repo.object_store)?;
+                println!("{} {}", "✅".green(), format!("Added: {}", file_path.display()).bright_white());
+                added_count += 1;
+            }
         }
     }
     // If pattern is provided, add files matching the pattern
@@ -497,13 +533,13 @@ pub fn pile_command(path: &Path, files: Vec<&Path>, all: bool, pattern: Option<&
         for entry in matches {
             match entry {
                 Ok(path) => {
-                    if path.is_file() {
+                    if path.is_file() && !should_ignore(&path) {
                         pile.add_path(&path, &repo.object_store)?;
                         println!("{} {}", "✅".green(), format!("Added: {}", path.display()).bright_white());
                         added_count += 1;
                     } else if path.is_dir() {
                         // Recursively add all files in the directory
-                        added_count += add_directory_recursively(&path, &mut pile, &repo.object_store)?;
+                        added_count += add_directory_recursively(&path, &mut pile, &repo.object_store, &repo.path, &ignore_patterns)?;
                     }
                 }
                 Err(e) => {
@@ -515,13 +551,13 @@ pub fn pile_command(path: &Path, files: Vec<&Path>, all: bool, pattern: Option<&
     // Otherwise, add the specified files
     else {
         for file_path in files {
-            if file_path.is_file() {
+            if file_path.is_file() && !should_ignore(file_path) {
                 pile.add_path(file_path, &repo.object_store)?;
                 println!("{} {}", "✅".green(), format!("Added: {}", file_path.display()).bright_white());
                 added_count += 1;
             } else if file_path.is_dir() {
                 // Recursively add all files in the directory
-                added_count += add_directory_recursively(file_path, &mut pile, &repo.object_store)?;
+                added_count += add_directory_recursively(file_path, &mut pile, &repo.object_store, &repo.path, &ignore_patterns)?;
             } else {
                 // Check if it's a glob pattern
                 let path_str = file_path.to_string_lossy();
@@ -530,13 +566,13 @@ pub fn pile_command(path: &Path, files: Vec<&Path>, all: bool, pattern: Option<&
                     for entry in matches {
                         match entry {
                             Ok(path) => {
-                                if path.is_file() {
+                                if path.is_file() && !should_ignore(&path) {
                                     pile.add_path(&path, &repo.object_store)?;
                                     println!("{} {}", "✅".green(), format!("Added: {}", path.display()).bright_white());
                                     added_count += 1;
                                 } else if path.is_dir() {
                                     // Recursively add all files in the directory
-                                    added_count += add_directory_recursively(&path, &mut pile, &repo.object_store)?;
+                                    added_count += add_directory_recursively(&path, &mut pile, &repo.object_store, &repo.path, &ignore_patterns)?;
                                 }
                             }
                             Err(e) => {
@@ -568,7 +604,7 @@ pub fn pile_command(path: &Path, files: Vec<&Path>, all: bool, pattern: Option<&
 }
 
 /// Recursively add all files in a directory to the pile
-fn add_directory_recursively(dir_path: &Path, pile: &mut Pile, object_store: &ObjectStore) -> Result<usize> {
+fn add_directory_recursively(dir_path: &Path, pile: &mut Pile, object_store: &ObjectStore, repo_path: &Path, ignore_patterns: &[String]) -> Result<usize> {
     let mut added_count = 0;
     
     // Create a progress bar for directory scanning
@@ -596,6 +632,25 @@ fn add_directory_recursively(dir_path: &Path, pile: &mut Pile, object_store: &Ob
                 continue;
             }
             
+            // Check if the file matches any ignore pattern
+            let relative_path = if let Ok(rel_path) = path.strip_prefix(repo_path) {
+                rel_path
+            } else {
+                path
+            };
+            
+            let should_ignore = ignore_patterns.iter().any(|pattern| {
+                if let Ok(glob_pattern) = glob::Pattern::new(pattern) {
+                    glob_pattern.matches_path(relative_path)
+                } else {
+                    false
+                }
+            });
+            
+            if should_ignore {
+                continue;
+            }
+            
             // Add the file to the pile
             pile.add_path(path, object_store)?;
             spinner.set_message(format!("Added: {}", path.display()));
@@ -606,6 +661,32 @@ fn add_directory_recursively(dir_path: &Path, pile: &mut Pile, object_store: &Ob
     spinner.finish_with_message(format!("Added {} files from {}", added_count, dir_path.display()));
     
     Ok(added_count)
+}
+
+/// Find the repository root by looking for .pocket directory
+fn find_repository_root(path: &Path) -> Result<PathBuf> {
+    let mut current = path.to_path_buf();
+    
+    loop {
+        if current.join(".pocket").exists() {
+            return Ok(current);
+        }
+        
+        if !current.pop() {
+            return Err(anyhow!("Not a pocket repository (or any parent directory)"));
+        }
+    }
+}
+
+/// Read ignore patterns from a .pocketignore file
+fn read_ignore_patterns(path: &Path) -> Result<Vec<String>> {
+    let content = std::fs::read_to_string(path)?;
+    let patterns = content.lines()
+        .filter(|line| !line.trim().is_empty() && !line.trim().starts_with('#'))
+        .map(|line| line.trim().to_string())
+        .collect();
+    
+    Ok(patterns)
 }
 
 /// Remove files from the pile
@@ -1118,6 +1199,73 @@ pub fn push_command(path: &Path, remote: Option<&str>, timeline: Option<&str>) -
     remote_manager.push(remote_name, timeline_name)?;
     
     println!("Pushed timeline '{}' to remote '{}'", timeline_name, remote_name);
+    
+    Ok(())
+}
+
+/// Manage ignore patterns
+pub fn ignore_command(path: &Path, add: Option<&str>, remove: Option<&str>, list: bool) -> Result<()> {
+    let repo = Repository::open(path)?;
+    let mut config = repo.config.clone();
+    let ignore_path = repo.path.join(".pocketignore");
+    
+    // Read existing patterns from .pocketignore file if it exists
+    let mut patterns = if ignore_path.exists() {
+        let content = std::fs::read_to_string(&ignore_path)?;
+        content.lines()
+            .filter(|line| !line.trim().is_empty() && !line.trim().starts_with('#'))
+            .map(|line| line.trim().to_string())
+            .collect::<Vec<String>>()
+    } else {
+        config.core.ignore_patterns.clone()
+    };
+    
+    if let Some(pattern) = add {
+        // Add new pattern if it doesn't already exist
+        if !patterns.contains(&pattern.to_string()) {
+            patterns.push(pattern.to_string());
+            println!("{} Added ignore pattern: {}", "✅".green(), pattern);
+        } else {
+            println!("{} Pattern already exists: {}", "ℹ️".blue(), pattern);
+        }
+    }
+    
+    if let Some(pattern) = remove {
+        // Remove pattern if it exists
+        if let Some(pos) = patterns.iter().position(|p| p == pattern) {
+            patterns.remove(pos);
+            println!("{} Removed ignore pattern: {}", "✅".green(), pattern);
+        } else {
+            println!("{} Pattern not found: {}", "⚠️".yellow(), pattern);
+        }
+    }
+    
+    if list {
+        // List all patterns
+        println!("\n{} Ignore patterns:", "📋".bright_cyan());
+        if patterns.is_empty() {
+            println!("  No ignore patterns defined");
+        } else {
+            for pattern in &patterns {
+                println!("  - {}", pattern);
+            }
+        }
+    }
+    
+    // Update config and save to .pocketignore file
+    config.core.ignore_patterns = patterns.clone();
+    
+    // Save patterns to .pocketignore file
+    let mut content = "# Pocket ignore file\n".to_string();
+    for pattern in &patterns {
+        content.push_str(&format!("{}\n", pattern));
+    }
+    std::fs::write(&ignore_path, content)?;
+    
+    // Update repository config
+    let config_path = repo.path.join(".pocket").join("config.toml");
+    let config_str = toml::to_string_pretty(&config)?;
+    std::fs::write(config_path, config_str)?;
     
     Ok(())
 } 
