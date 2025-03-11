@@ -2,6 +2,22 @@
 
 All notable changes to Pocket will be documented in this file using our letter-based versioning system.
 
+## v-pocket-R3A2-ncR3A1< (03202025 - Version Control System Improvements)
+
+### Added
+- Fixed pile command to save to the correct location
+- Recursive directory support for pile command
+- Enhanced help text for pile command
+- Improved error handling for shove command
+
+### Changed
+- Updated pile command to handle directories recursively
+- Fixed compatibility issues with previous version
+
+### Notes
+- This version is only compatible with R3A1 and newer
+- Fixes critical issues with the pile and shove commands
+
 ## v-pocket-R3A1-nc (03152025 - Version Control System)
 
 ### Added
