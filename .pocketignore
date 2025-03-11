@@ -1,0 +1,3 @@
+# Pocket ignore file
+.DS_Store
+*.log

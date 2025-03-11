@@ -361,6 +361,9 @@ pub fn help_command(
         return Ok(());
     }
     
+    // The main help display is now handled in src/main.rs with print_custom_help()
+    // This function now only handles specific command help
+    
     if let Some(cmd) = command {
         match cmd.as_str() {
             "add" => {
@@ -412,30 +415,88 @@ pub fn help_command(
                 println!("pocket reload");
                 println!("Reload all extensions");
             }
-            "help" => {
-                println!("pocket help [COMMAND] [OPTIONS]");
-                println!("Display help information");
+            "new-repo" => {
+                println!("pocket new-repo [PATH] [OPTIONS]");
+                println!("Create a new Pocket VCS repository");
                 println!("\nOptions:");
-                println!("  --extensions           List all installed extensions with descriptions");
+                println!("  --template <TEMPLATE>  Initialize with a template");
+                println!("  --no-default           Don't create default files");
+            }
+            "status" => {
+                println!("pocket status [OPTIONS]");
+                println!("Show repository status");
+                println!("\nOptions:");
+                println!("  -v, --verbose          Show verbose output");
+            }
+            "pile" => {
+                println!("pocket pile [FILES...] [OPTIONS]");
+                println!("Add files to the pile (staging area)");
+                println!("\nOptions:");
+                println!("  -a, --all              Add all changes");
+                println!("  --pattern <PATTERN>    Add files matching pattern");
+            }
+            "unpile" => {
+                println!("pocket unpile [FILES...] [OPTIONS]");
+                println!("Remove files from the pile (staging area)");
+                println!("\nOptions:");
+                println!("  -a, --all              Remove all files");
+            }
+            "shove" => {
+                println!("pocket shove [OPTIONS]");
+                println!("Create a shove (commit)");
+                println!("\nOptions:");
+                println!("  -m, --message <MESSAGE> Commit message");
+                println!("  -e, --editor            Open editor for message");
+            }
+            "log" => {
+                println!("pocket log [OPTIONS]");
+                println!("Show shove history");
+                println!("\nOptions:");
+                println!("  -g, --graph            Show graph");
+                println!("  --limit <N>            Limit number of entries");
+                println!("  --timeline <NAME>      Show history for specific timeline");
+            }
+            "timeline" => {
+                println!("pocket timeline <SUBCOMMAND>");
+                println!("Manage timelines (branches)");
+                println!("\nSubcommands:");
+                println!("  new <NAME>             Create a new timeline");
+                println!("  switch <NAME>          Switch to a timeline");
+                println!("  list                   List all timelines");
+                println!("\nOptions for 'new':");
+                println!("  --based-on <SHOVE_ID>  Base the timeline on a specific shove");
+            }
+            "merge" => {
+                println!("pocket merge <NAME> [OPTIONS]");
+                println!("Merge a timeline into the current one");
+                println!("\nOptions:");
+                println!("  --strategy <STRATEGY>  Merge strategy");
+            }
+            "remote" => {
+                println!("pocket remote <SUBCOMMAND>");
+                println!("Manage remote repositories");
+                println!("\nSubcommands:");
+                println!("  add <NAME> <URL>       Add a remote repository");
+                println!("  remove <NAME>          Remove a remote repository");
+                println!("  list                   List remote repositories");
+            }
+            "fish" => {
+                println!("pocket fish [REMOTE]");
+                println!("Fetch from a remote repository");
+            }
+            "push" => {
+                println!("pocket push [REMOTE] [TIMELINE]");
+                println!("Push to a remote repository");
             }
             _ => {
-                return Err(anyhow!("Unknown command: {}", cmd));
+                println!("Unknown command: {}", cmd);
+                println!("Run 'pocket help' for a list of available commands");
             }
         }
     } else {
-        println!("Pocket CLI - A tool for saving, organizing, and retrieving code snippets");
-        println!("\nUsage:");
-        println!("  pocket <COMMAND> [OPTIONS]");
-        println!("\nCommands:");
-        println!("  add                 Add content to your pocket storage");
-        println!("  list                Display all pocket entries");
-        println!("  remove              Remove an entry from storage");
-        println!("  create backpack     Create a new backpack for organizing entries");
-        println!("  search              Find entries using semantic similarity");
-        println!("  insert              Insert an entry into a file");
-        println!("  reload              Reload all extensions");
-        println!("  help                Display help information");
-        println!("\nRun 'pocket help <COMMAND>' for more information on a specific command");
+        // This should not be reached as main.rs handles the case with no command
+        // But just in case, we'll call the custom help
+        crate::print_custom_help();
     }
     
     Ok(())

@@ -4,6 +4,7 @@ mod search;
 mod storage;
 mod utils;
 mod version;
+mod vcs;
 
 use clap::{Parser, Subcommand};
 use anyhow::Result;
@@ -11,7 +12,7 @@ use anyhow::Result;
 #[derive(Parser)]
 #[command(
     name = "pocket",
-    about = "A CLI tool for saving, organizing, and retrieving code snippets",
+    about = "A CLI tool for saving, organizing, and retrieving code snippets with integrated version control",
     version = version::VERSION_STRING,
     author
 )]
@@ -22,6 +23,8 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Commands {
+    #[command(about = "Snippet Management Commands")]
+    #[command(visible_alias = "snippet")]
     /// Add content to your pocket storage
     Add {
         /// Path to the file to add
@@ -183,6 +186,123 @@ enum Commands {
         #[arg(trailing_var_arg = true)]
         args: Vec<String>,
     },
+
+    #[command(about = "Version Control Commands")]
+    #[command(visible_alias = "vcs")]
+    /// Create a new repository
+    NewRepo {
+        /// Path where to create the repository
+        #[arg(value_name = "PATH")]
+        path: Option<String>,
+
+        /// Initialize with a template
+        #[arg(long, value_name = "TEMPLATE")]
+        template: Option<String>,
+
+        /// Don't create default files
+        #[arg(long)]
+        no_default: bool,
+    },
+
+    /// Show repository status
+    Status {
+        /// Show verbose output
+        #[arg(short, long)]
+        verbose: bool,
+    },
+
+    /// Add files to the pile (staging area)
+    Pile {
+        /// Files to add
+        #[arg(value_name = "FILES")]
+        files: Vec<String>,
+
+        /// Add all changes
+        #[arg(short, long)]
+        all: bool,
+
+        /// Add files matching pattern
+        #[arg(long, value_name = "PATTERN")]
+        pattern: Option<String>,
+    },
+
+    /// Remove files from the pile (staging area)
+    Unpile {
+        /// Files to remove
+        #[arg(value_name = "FILES")]
+        files: Vec<String>,
+
+        /// Remove all files
+        #[arg(short, long)]
+        all: bool,
+    },
+
+    /// Create a shove (commit)
+    Shove {
+        /// Commit message
+        #[arg(short, long, value_name = "MESSAGE")]
+        message: Option<String>,
+
+        /// Open editor for message
+        #[arg(short, long)]
+        editor: bool,
+    },
+
+    /// Show shove history
+    Log {
+        /// Show graph
+        #[arg(short, long)]
+        graph: bool,
+
+        /// Limit number of entries
+        #[arg(long, value_name = "N")]
+        limit: Option<usize>,
+
+        /// Show history for specific timeline
+        #[arg(long, value_name = "NAME")]
+        timeline: Option<String>,
+    },
+
+    /// Manage timelines (branches)
+    Timeline {
+        #[command(subcommand)]
+        action: TimelineCommands,
+    },
+
+    /// Merge a timeline into the current one
+    Merge {
+        /// Name of the timeline to merge
+        #[arg(value_name = "NAME")]
+        name: String,
+
+        /// Merge strategy
+        #[arg(long, value_name = "STRATEGY")]
+        strategy: Option<String>,
+    },
+
+    /// Manage remote repositories
+    Remote {
+        #[command(subcommand)]
+        action: RemoteCommands,
+    },
+
+    /// Fetch from a remote repository
+    Fish {
+        /// Name of the remote
+        #[arg(value_name = "REMOTE")]
+        remote: Option<String>,
+    },
+
+    /// Push to a remote repository
+    Push {
+        /// Name of the remote
+        #[arg(value_name = "REMOTE")]
+        remote: Option<String>,
+
+        /// Name of the timeline to push
+        #[arg(value_name = "TIMELINE")]
+        timeline: Option<String>,
+    },
 }
 
 #[derive(Subcommand)]
@@ -199,8 +319,64 @@ enum CreateCommands {
     },
 }
 
+#[derive(Subcommand)]
+enum TimelineCommands {
+    /// Create a new timeline
+    New {
+        /// Name of the timeline
+        #[arg(value_name = "NAME")]
+        name: String,
+
+        /// Base the timeline on a specific shove
+        #[arg(long, value_name = "SHOVE_ID")]
+        based_on: Option<String>,
+    },
+
+    /// Switch to a timeline
+    Switch {
+        /// Name of the timeline
+        #[arg(value_name = "NAME")]
+        name: String,
+    },
+
+    /// List all timelines
+    List,
+}
+
+#[derive(Subcommand)]
+enum RemoteCommands {
+    /// Add a remote repository
+    Add {
+        /// Name of the remote
+        #[arg(value_name = "NAME")]
+        name: String,
+
+        /// URL of the remote
+        #[arg(value_name = "URL")]
+        url: String,
+    },
+
+    /// Remove a remote repository
+    Remove {
+        /// Name of the remote
+        #[arg(value_name = "NAME")]
+        name: String,
+    },
+
+    /// List remote repositories
+    List,
+}
+
 fn main() -> Result<()> {
     let cli = Cli::parse();
+
+    // Handle custom help display
+    if let Commands::ShowHelp { command, extensions } = &cli.command {
+        if command.is_none() && !extensions {
+            print_custom_help();
+            return Ok(());
+        }
+    }
 
     match cli.command {
         Commands::Add { file, message, editor, backpack } => {
@@ -268,7 +444,119 @@ fn main() -> Result<()> {
         Commands::Execute { id, file, backpack, no_confirm, args } => {
             commands::execute_command(id, file, backpack, no_confirm, args)?;
         }
+        // VCS commands
+        Commands::NewRepo { path, template, no_default } => {
+            let path_str = path.unwrap_or_else(|| ".".to_string());
+            let path = std::path::Path::new(&path_str);
+            vcs::commands::new_repo_command(path, template.as_deref(), no_default)?;
+        }
+        Commands::Status { verbose } => {
+            let path = std::path::Path::new(".");
+            vcs::commands::status_command(path, verbose)?;
+        }
+        Commands::Pile { files, all, pattern } => {
+            let path = std::path::Path::new(".");
+            let file_paths: Vec<&std::path::Path> = files.iter().map(|f| std::path::Path::new(f)).collect();
+            vcs::commands::pile_command(path, file_paths, all, pattern.as_deref())?;
+        }
+        Commands::Unpile { files, all } => {
+            let path = std::path::Path::new(".");
+            let file_paths: Vec<&std::path::Path> = files.iter().map(|f| std::path::Path::new(f)).collect();
+            vcs::commands::unpile_command(path, file_paths, all)?;
+        }
+        Commands::Shove { message, editor } => {
+            let path = std::path::Path::new(".");
+            vcs::commands::shove_command(path, message.as_deref(), editor)?;
+        }
+        Commands::Log { graph, limit, timeline } => {
+            let path = std::path::Path::new(".");
+            vcs::commands::log_command(path, graph, limit, timeline.as_deref())?;
+        }
+        Commands::Timeline { action } => {
+            let path = std::path::Path::new(".");
+            match action {
+                TimelineCommands::New { name, based_on } => {
+                    vcs::commands::timeline_new_command(path, &name, based_on.as_deref())?;
+                }
+                TimelineCommands::Switch { name } => {
+                    vcs::commands::timeline_switch_command(path, &name)?;
+                }
+                TimelineCommands::List => {
+                    vcs::commands::timeline_list_command(path)?;
+                }
+            }
+        }
+        Commands::Merge { name, strategy } => {
+            let path = std::path::Path::new(".");
+            vcs::commands::merge_command(path, &name, strategy.as_deref())?;
+        }
+        Commands::Remote { action } => {
+            let path = std::path::Path::new(".");
+            match action {
+                RemoteCommands::Add { name, url } => {
+                    vcs::commands::remote_add_command(path, &name, &url)?;
+                }
+                RemoteCommands::Remove { name } => {
+                    vcs::commands::remote_remove_command(path, &name)?;
+                }
+                RemoteCommands::List => {
+                    vcs::commands::remote_list_command(path)?;
+                }
+            }
+        }
+        Commands::Fish { remote } => {
+            let path = std::path::Path::new(".");
+            vcs::commands::fish_command(path, remote.as_deref())?;
+        }
+        Commands::Push { remote, timeline } => {
+            let path = std::path::Path::new(".");
+            vcs::commands::push_command(path, remote.as_deref(), timeline.as_deref())?;
+        }
     }
 
     Ok(())
+}
+
+fn print_custom_help() {
+    println!("pocket {}", version::VERSION_STRING);
+    println!("A CLI tool for saving, organizing, and retrieving code snippets with integrated version control\n");
+    
+    println!("USAGE:");
+    println!("    pocket <COMMAND>\n");
+    
+    println!("SNIPPET MANAGEMENT COMMANDS:");
+    println!("    add                 Add content to your pocket storage");
+    println!("    list                Display all pocket entries");
+    println!("    remove              Remove an entry from storage");
+    println!("    create              Create a new backpack for organizing entries");
+    println!("    search              Find entries using semantic similarity");
+    println!("    insert              Insert an entry into a file");
+    println!("    edit                Edit an existing entry");
+    println!("    execute             Execute a script");
+    println!("    lint                Create and execute command chains");
+    println!("    delete-workflow     Remove a saved workflow");
+    println!("");
+    
+    println!("VERSION CONTROL COMMANDS:");
+    println!("    new-repo            Create a new repository");
+    println!("    status              Show repository status");
+    println!("    pile                Add files to the pile (staging area)");
+    println!("    unpile              Remove files from the pile (staging area)");
+    println!("    shove               Create a shove (commit)");
+    println!("    log                 Show shove history");
+    println!("    timeline            Manage timelines (branches)");
+    println!("    merge               Merge a timeline into the current one");
+    println!("    remote              Manage remote repositories");
+    println!("    fish                Fetch from a remote repository");
+    println!("    push                Push to a remote repository");
+    println!("");
+    
+    println!("GENERAL COMMANDS:");
+    println!("    reload              Reload all extensions");
+    println!("    help                Display help information");
+    println!("    version             Display version information");
+    println!("");
+    
+    println!("For more information about a specific command, run:");
+    println!("    pocket help <COMMAND>");
 }

@@ -2,6 +2,30 @@
 
 All notable changes to Pocket will be documented in this file using our letter-based versioning system.
 
+## v-pocket-R3A1-nc (03152025 - Version Control System)
+
+### Added
+- Integrated custom Version Control System (VCS)
+- Repository creation with `new-repo` command
+- File staging with `pile` and `unpile` commands
+- Commit functionality with `shove` command
+- Branch management with `timeline` commands
+- Repository status checking with `status` command
+- History viewing with `log` command
+- Merge functionality for timelines
+- Remote repository management
+- Improved help menu with categorized commands
+
+### Changed
+- Updated command-line interface to include VCS commands
+- Enhanced help display to separate snippet management from version control
+- Improved error handling for VCS operations
+
+### Notes
+- This is an alpha release of the VCS functionality
+- Some VCS features may not work as expected
+- The VCS implementation is still under active development
+
 ## v-pocket-R2B2-nc (03122025 - Bash Scripting Support)
 
 ### Added
