@@ -22,6 +22,7 @@ struct Cli {
     command: Commands,
 }
 
+/// Pocket VCS Commands
 #[derive(Subcommand)]
 enum Commands {
     /// 🔍 Show repository status
@@ -36,21 +37,21 @@ enum Commands {
     },
     
     /// 📦 Add files to the pile (staging area)
+    /// 
+    /// Directories will be added recursively, and glob patterns like src/* are supported.
+    /// Use --all to add all modified and untracked files, or --pattern to add files matching a pattern.
+    #[command(about = "Add files to the pile (staging area). Directories will be added recursively, and glob patterns like src/* are supported.")]
     Pile {
-        /// Files or directories to add (supports glob patterns like src/*)
-        #[arg(value_name = "FILES")]
+        #[arg(value_name = "FILES", help = "Files or directories to add (directories will be added recursively, supports glob patterns like src/*)")]
         files: Vec<String>,
         
-        /// Add all modified and untracked files
-        #[arg(short, long)]
+        #[arg(short, long, help = "Add all modified and untracked files")]
         all: bool,
         
-        /// Add files matching pattern (supports glob patterns)
-        #[arg(long, value_name = "PATTERN")]
+        #[arg(long, value_name = "PATTERN", help = "Add files matching pattern (supports glob patterns)")]
         pattern: Option<String>,
         
-        /// Repository path
-        #[arg(short, long, default_value = ".")]
+        #[arg(short, long, default_value = ".", help = "Repository path")]
         path: PathBuf,
     },
     

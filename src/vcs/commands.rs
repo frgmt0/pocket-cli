@@ -552,7 +552,10 @@ pub fn pile_command(path: &Path, files: Vec<&Path>, all: bool, pattern: Option<&
     }
     
     // Save the updated pile
-    pile.save(&repo.path.join(".pocket").join("pile.toml"))?;
+    let pile_path = repo.path.join(".pocket").join("piles").join("current.toml");
+    // Ensure the piles directory exists
+    std::fs::create_dir_all(pile_path.parent().unwrap())?;
+    pile.save(&pile_path)?;
     
     if added_count > 0 {
         println!("\n{} {} files added to the pile", "✅".green(), added_count);

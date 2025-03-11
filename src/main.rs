@@ -435,7 +435,7 @@ fn main() -> Result<()> {
             println!("Release Name: {}", version.name);
             println!("Internal Date: {}", version.date);
             println!("Cargo SemVer: {} (required for Rust ecosystem)", version.semver);
-            println!("\nFor full changelog, see: https://github.com/username/pocket/blob/main/CHANGELOG.md");
+            println!("\nFor full changelog, see: https://github.com/frgmt0/pocket/blob/main/CHANGELOG.md");
         }
         Commands::Edit { id, backpack } => {
             commands::edit_command(id, backpack)?;
