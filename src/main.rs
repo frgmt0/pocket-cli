@@ -248,20 +248,19 @@ enum Commands {
         editor: bool,
     },
 
-    /// Show shove history
+    /// Show commit history
     Log {
-        /// Show graph
+        /// Show verbose output
         #[arg(short, long)]
-        graph: bool,
-
-        /// Limit number of entries
-        #[arg(long, value_name = "N")]
-        limit: Option<usize>,
-
-        /// Show history for specific timeline
-        #[arg(long, value_name = "NAME")]
+        verbose: bool,
+        
+        /// Timeline to show history for
+        #[arg(short, long)]
         timeline: Option<String>,
     },
+
+    /// Show timeline graph
+    Graph,
 
     /// Manage timelines (branches)
     Timeline {
@@ -468,9 +467,13 @@ fn main() -> Result<()> {
             let path = std::path::Path::new(".");
             vcs::commands::shove_command(path, message.as_deref(), editor)?;
         }
-        Commands::Log { graph, limit, timeline } => {
+        Commands::Log { verbose, timeline } => {
             let path = std::path::Path::new(".");
-            vcs::commands::log_command(path, graph, limit, timeline.as_deref())?;
+            vcs::commands::log_command(path, verbose, timeline.as_deref())?;
+        }
+        Commands::Graph => {
+            let path = std::path::Path::new(".");
+            vcs::commands::graph_command(path)?;
         }
         Commands::Timeline { action } => {
             let path = std::path::Path::new(".");
@@ -543,7 +546,7 @@ fn print_custom_help() {
     println!("    pile                Add files to the pile (staging area)");
     println!("    unpile              Remove files from the pile (staging area)");
     println!("    shove               Create a shove (commit)");
-    println!("    log                 Show shove history");
+    println!("    log                 Show commit history");
     println!("    timeline            Manage timelines (branches)");
     println!("    merge               Merge a timeline into the current one");
     println!("    remote              Manage remote repositories");
