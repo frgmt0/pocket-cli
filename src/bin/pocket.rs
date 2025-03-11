@@ -37,6 +37,18 @@ enum Commands {
     
     /// 📦 Add files to the pile (staging area)
     Pile {
+        /// Files or directories to add (supports glob patterns like src/*)
+        #[arg(value_name = "FILES")]
+        files: Vec<String>,
+        
+        /// Add all modified and untracked files
+        #[arg(short, long)]
+        all: bool,
+        
+        /// Add files matching pattern (supports glob patterns)
+        #[arg(long, value_name = "PATTERN")]
+        pattern: Option<String>,
+        
         /// Repository path
         #[arg(short, long, default_value = ".")]
         path: PathBuf,
@@ -175,8 +187,8 @@ fn main() -> Result<()> {
                 process::exit(1);
             }
         },
-        Commands::Pile { path } => {
-            if let Err(e) = interactive_pile_command(path) {
+        Commands::Pile { files, all, pattern, path } => {
+            if let Err(e) = interactive_pile_command(path, files.clone(), *all, pattern.clone()) {
                 eprintln!("{} {}", "❌".red(), format!("Error: {}", e).red());
                 process::exit(1);
             }

@@ -128,7 +128,13 @@ pub fn status_command(path: &Path, verbose: bool) -> Result<()> {
 }
 
 /// Interactive pile command
-pub fn interactive_pile_command(path: &Path) -> Result<()> {
+pub fn interactive_pile_command(path: &Path, files: Vec<String>, all: bool, pattern: Option<String>) -> Result<()> {
+    // If files, all flag, or pattern is provided, use the non-interactive pile command
+    if !files.is_empty() || all || pattern.is_some() {
+        let file_paths: Vec<&Path> = files.iter().map(|f| Path::new(f)).collect();
+        return pile_command(path, file_paths, all, pattern.as_deref());
+    }
+
     let repo = Repository::open(path)?;
     let status = repo.status()?;
     
@@ -464,57 +470,139 @@ pub fn interactive_timeline_command(path: &Path) -> Result<()> {
     Ok(())
 }
 
-/// Add files to the pile
+/// Add files to the pile (staging area)
 pub fn pile_command(path: &Path, files: Vec<&Path>, all: bool, pattern: Option<&str>) -> Result<()> {
-    let mut repo = Repository::open(path)?;
+    let repo = Repository::open(path)?;
+    let mut pile = repo.pile.clone();
+    let mut added_count = 0;
     
+    // If --all flag is provided, add all modified files
     if all {
-        // Scan working directory for changes
         let status = repo.status()?;
-        
-        // Add modified files
         for file_path in &status.modified_files {
-            println!("Adding modified file {} to the pile", file_path.display());
-            repo.pile.add_path(file_path, &repo.object_store)?;
+            pile.add_path(file_path, &repo.object_store)?;
+            println!("{} {}", "✅".green(), format!("Added: {}", file_path.display()).bright_white());
+            added_count += 1;
         }
         
-        // Add untracked files
         for file_path in &status.untracked_files {
-            println!("Adding untracked file {} to the pile", file_path.display());
-            repo.pile.add_path(file_path, &repo.object_store)?;
+            pile.add_path(file_path, &repo.object_store)?;
+            println!("{} {}", "✅".green(), format!("Added: {}", file_path.display()).bright_white());
+            added_count += 1;
         }
-    } else if let Some(pat) = pattern {
-        // Use glob pattern to find matching files
-        let glob_pattern = if !pat.starts_with("./") {
-            format!("./{}", pat)
-        } else {
-            pat.to_string()
-        };
-        
-        for entry in glob::glob(&glob_pattern)? {
+    }
+    // If pattern is provided, add files matching the pattern
+    else if let Some(pattern_str) = pattern {
+        let matches = glob::glob(pattern_str)?;
+        for entry in matches {
             match entry {
                 Ok(path) => {
-                    println!("Adding {} to the pile", path.display());
-                    repo.pile.add_path(&path, &repo.object_store)?;
+                    if path.is_file() {
+                        pile.add_path(&path, &repo.object_store)?;
+                        println!("{} {}", "✅".green(), format!("Added: {}", path.display()).bright_white());
+                        added_count += 1;
+                    } else if path.is_dir() {
+                        // Recursively add all files in the directory
+                        added_count += add_directory_recursively(&path, &mut pile, &repo.object_store)?;
+                    }
                 }
-                Err(e) => println!("Error matching pattern: {}", e),
+                Err(e) => {
+                    println!("{} {}", "⚠️".yellow(), format!("Error matching pattern: {}", e).yellow());
+                }
             }
         }
-    } else if !files.is_empty() {
-        // Add specific files
-        for file in files {
-            println!("Adding {} to the pile", file.display());
-            repo.pile.add_path(file, &repo.object_store)?;
+    }
+    // Otherwise, add the specified files
+    else {
+        for file_path in files {
+            if file_path.is_file() {
+                pile.add_path(file_path, &repo.object_store)?;
+                println!("{} {}", "✅".green(), format!("Added: {}", file_path.display()).bright_white());
+                added_count += 1;
+            } else if file_path.is_dir() {
+                // Recursively add all files in the directory
+                added_count += add_directory_recursively(file_path, &mut pile, &repo.object_store)?;
+            } else {
+                // Check if it's a glob pattern
+                let path_str = file_path.to_string_lossy();
+                if path_str.contains('*') || path_str.contains('?') || path_str.contains('[') {
+                    let matches = glob::glob(&path_str)?;
+                    for entry in matches {
+                        match entry {
+                            Ok(path) => {
+                                if path.is_file() {
+                                    pile.add_path(&path, &repo.object_store)?;
+                                    println!("{} {}", "✅".green(), format!("Added: {}", path.display()).bright_white());
+                                    added_count += 1;
+                                } else if path.is_dir() {
+                                    // Recursively add all files in the directory
+                                    added_count += add_directory_recursively(&path, &mut pile, &repo.object_store)?;
+                                }
+                            }
+                            Err(e) => {
+                                println!("{} {}", "⚠️".yellow(), format!("Error matching pattern: {}", e).yellow());
+                            }
+                        }
+                    }
+                } else {
+                    println!("{} {}", "⚠️".yellow(), format!("File not found: {}", file_path.display()).yellow());
+                }
+            }
         }
-    } else {
-        return Err(anyhow!("No files specified to add to the pile"));
     }
     
-    // Save the pile
-    let pile_path = repo.path.join(".pocket").join("piles").join("current.toml");
-    repo.pile.save(&pile_path)?;
+    // Save the updated pile
+    pile.save(&repo.path.join(".pocket").join("pile.toml"))?;
+    
+    if added_count > 0 {
+        println!("\n{} {} files added to the pile", "✅".green(), added_count);
+        println!("{} Use {} to create a shove", "💡".yellow(), "pocket shove".bright_cyan());
+    } else {
+        println!("{} No files added to the pile", "ℹ️".blue());
+    }
     
     Ok(())
+}
+
+/// Recursively add all files in a directory to the pile
+fn add_directory_recursively(dir_path: &Path, pile: &mut Pile, object_store: &ObjectStore) -> Result<usize> {
+    let mut added_count = 0;
+    
+    // Create a progress bar for directory scanning
+    let spinner = ProgressBar::new_spinner();
+    spinner.set_style(
+        ProgressStyle::default_spinner()
+            .template("{spinner:.green} {msg}")
+            .unwrap()
+    );
+    spinner.set_message(format!("Scanning directory: {}", dir_path.display()));
+    
+    // Use walkdir to recursively iterate through the directory
+    for entry in walkdir::WalkDir::new(dir_path)
+        .follow_links(false)
+        .into_iter()
+        .filter_map(|e| e.ok()) {
+            
+        spinner.tick();
+        
+        let path = entry.path();
+        if path.is_file() {
+            // Skip files in .git, .pocket, or other VCS directories
+            if path.to_string_lossy().contains("/.pocket/") || 
+               path.to_string_lossy().contains("/.git/") {
+                continue;
+            }
+            
+            // Add the file to the pile
+            pile.add_path(path, object_store)?;
+            spinner.set_message(format!("Added: {}", path.display()));
+            added_count += 1;
+        }
+    }
+    
+    spinner.finish_with_message(format!("Added {} files from {}", added_count, dir_path.display()));
+    
+    Ok(added_count)
 }
 
 /// Remove files from the pile
