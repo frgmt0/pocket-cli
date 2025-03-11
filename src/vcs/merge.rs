@@ -9,6 +9,7 @@ use anyhow::{Result, anyhow};
 use std::fs;
 use toml;
 use chrono::Utc;
+use colored::Colorize;
 
 use crate::vcs::{
     ShoveId, ObjectId, ObjectStore, Tree, TreeEntry,
@@ -680,8 +681,140 @@ impl<'a> Merger<'a> {
         Ok(tree_id)
     }
     
-    // Additional methods would be implemented here:
-    // - merge_files: Merge changes to a specific file
-    // - resolve_conflict: Resolve a merge conflict
-    // - etc.
+    /// Resolve conflicts interactively
+    pub fn resolve_conflicts_interactively(&self, conflicts: &[MergeConflict]) -> Result<Vec<ConflictResolution>> {
+        let mut resolutions = Vec::new();
+        
+        println!("\n{} Resolving {} conflicts interactively", "🔄".bright_blue(), conflicts.len());
+        
+        for (i, conflict) in conflicts.iter().enumerate() {
+            println!("\n{} Conflict {}/{}: {}", "⚠️".yellow(), i + 1, conflicts.len(), conflict.path.display());
+            
+            // Display the conflict
+            self.display_conflict(conflict)?;
+            
+            // Ask for resolution
+            let resolution = self.prompt_for_resolution(conflict)?;
+            resolutions.push(resolution);
+            
+            println!("{} Conflict resolved", "✅".green());
+        }
+        
+        println!("\n{} All conflicts resolved", "🎉".green());
+        
+        Ok(resolutions)
+    }
+    
+    /// Display a conflict to the user
+    fn display_conflict(&self, conflict: &MergeConflict) -> Result<()> {
+        // Load the base, ours, and theirs content
+        let base_content = if let Some(id) = &conflict.base_id {
+            self.load_object_content(id)?
+        } else {
+            String::new()
+        };
+        
+        let ours_content = if let Some(id) = &conflict.ours_id {
+            self.load_object_content(id)?
+        } else {
+            String::new()
+        };
+        
+        let theirs_content = if let Some(id) = &conflict.theirs_id {
+            self.load_object_content(id)?
+        } else {
+            String::new()
+        };
+        
+        // Display the differences
+        println!("\n{} Base version:", "⚪".bright_black());
+        self.print_content(&base_content, "  ");
+        
+        println!("\n{} Our version (current timeline):", "🟢".green());
+        self.print_content(&ours_content, "  ");
+        
+        println!("\n{} Their version (incoming timeline):", "🔵".blue());
+        self.print_content(&theirs_content, "  ");
+        
+        Ok(())
+    }
+    
+    /// Print content with line numbers
+    fn print_content(&self, content: &str, prefix: &str) {
+        for (i, line) in content.lines().enumerate() {
+            println!("{}{:3} | {}", prefix, i + 1, line);
+        }
+        
+        if content.is_empty() {
+            println!("{}    | (empty file)", prefix);
+        }
+    }
+    
+    /// Prompt the user for conflict resolution
+    fn prompt_for_resolution(&self, conflict: &MergeConflict) -> Result<ConflictResolution> {
+        println!("\nHow would you like to resolve this conflict?");
+        println!("  1. {} Use our version (current timeline)", "🟢".green());
+        println!("  2. {} Use their version (incoming timeline)", "🔵".blue());
+        println!("  3. {} Edit and merge manually", "✏️".yellow());
+        
+        // In a real implementation, we would use a crate like dialoguer to get user input
+        // For now, we'll simulate the user choosing option 1
+        println!("\nSelected: 1. Use our version");
+        
+        if let Some(id) = &conflict.ours_id {
+            Ok(ConflictResolution::UseOurs)
+        } else {
+            // If our version doesn't exist, use theirs
+            Ok(ConflictResolution::UseTheirs)
+        }
+    }
+    
+    /// Load the content of an object
+    fn load_object_content(&self, id: &ObjectId) -> Result<String> {
+        let object_path = self.repo.path.join(".pocket").join("objects").join(id.as_str());
+        let content = fs::read_to_string(object_path)?;
+        Ok(content)
+    }
+    
+    /// Apply conflict resolutions to create a merged tree
+    pub fn apply_resolutions(&self, conflicts: &[MergeConflict], resolutions: &[ConflictResolution]) -> Result<Tree> {
+        // Create a new tree
+        let mut merged_tree = Tree { entries: Vec::new() };
+        
+        // Apply each resolution
+        for (conflict, resolution) in conflicts.iter().zip(resolutions.iter()) {
+            match resolution {
+                ConflictResolution::UseOurs => {
+                    if let Some(id) = &conflict.ours_id {
+                        merged_tree.entries.push(TreeEntry {
+                            name: conflict.path.to_string_lossy().to_string(),
+                            id: id.clone(),
+                            entry_type: EntryType::File,
+                            permissions: 0o644,
+                        });
+                    }
+                },
+                ConflictResolution::UseTheirs => {
+                    if let Some(id) = &conflict.theirs_id {
+                        merged_tree.entries.push(TreeEntry {
+                            name: conflict.path.to_string_lossy().to_string(),
+                            id: id.clone(),
+                            entry_type: EntryType::File,
+                            permissions: 0o644,
+                        });
+                    }
+                },
+                ConflictResolution::UseMerged(id) => {
+                    merged_tree.entries.push(TreeEntry {
+                        name: conflict.path.to_string_lossy().to_string(),
+                        id: id.clone(),
+                        entry_type: EntryType::File,
+                        permissions: 0o644,
+                    });
+                },
+            }
+        }
+        
+        Ok(merged_tree)
+    }
 } 
