@@ -3,9 +3,18 @@ use std::process;
 use clap::{Parser, Subcommand};
 use colored::Colorize;
 use anyhow::{Result, anyhow};
+use std::fs;
+use crate::vcs::Repository;
 
-use pocket::vcs::commands::{
+use crate::vcs::commands::{
     status_command, 
+    merge_command,
+    new_repo_command,
+    remote_add_command,
+    remote_remove_command,
+    remote_list_command,
+    push_command,
+    ignore_command,
     interactive_pile_command, 
     interactive_shove_command, 
     interactive_timeline_command,
@@ -285,8 +294,8 @@ fn main() -> Result<()> {
             }
         },
         Commands::Ignore { add, remove, list, path } => {
-            if let Err(e) = ignore_command(&path, add.as_deref(), remove.as_deref(), list) {
-                eprintln!("Error: {}", e);
+            if let Err(e) = ignore_command(path, add.as_deref(), remove.as_deref(), *list) {
+                eprintln!("{} {}", "❌".red(), format!("Error: {}", e).red());
                 std::process::exit(1);
             }
         },

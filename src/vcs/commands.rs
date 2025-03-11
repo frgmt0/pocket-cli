@@ -450,16 +450,19 @@ pub fn interactive_timeline_command(path: &Path) -> Result<()> {
             // Show timeline graph
             println!("\n{} {}", "📊".blue(), "Timeline Graph".bold());
             
-            // In a real implementation, we would generate a graph here
-            println!("  🌿 main");
-            println!("  ├── 📌 abcdef12 Initial commit");
-            println!("  ├── 📌 98765432 Add README");
-            println!("  └── 📌 12345678 Implement core functionality");
-            println!("       \\");
-            println!("        \\");
-            println!("         🌿 feature-branch");
-            println!("         ├── 📌 87654321 Start feature implementation");
-            println!("         └── 📌 23456789 Complete feature");
+            // Generate the graph using our new implementation
+            let graph_lines = crate::vcs::generate_graph(path)?;
+            
+            // Check if the graph is empty before iterating
+            if graph_lines.is_empty() {
+                println!("  No commits found in this repository.");
+                println!("  Create your first commit with {}", "pocket shove".bright_cyan());
+            } else {
+                // Print the graph
+                for line in &graph_lines {
+                    println!("{}", line);
+                }
+            }
         },
         _ => {
             // Back to main menu
@@ -933,37 +936,21 @@ enum ChangeType {
 
 /// Display a visual graph of the timeline history
 pub fn graph_command(path: &Path) -> Result<()> {
-    let repo = Repository::open(path)?;
-    
     println!("\n{} {} {}\n", "📊".bright_cyan(), "Pocket VCS Timeline Graph".bold().bright_cyan(), "📊".bright_cyan());
     
-    // In a real implementation, we would generate a graph based on the actual repository
-    // For now, we'll display a simulated graph
+    // Generate the graph using our new implementation
+    let graph_lines = crate::vcs::generate_graph(path)?;
     
-    println!("  🌿 main");
-    println!("  ├── 📌 abcdef12 Implement interactive merge resolution");
-    println!("  ├── 📌 9876543 Add remote repository functionality");
-    println!("  ├── 📌 1234567 Initial implementation of VCS");
-    println!("  │");
-    println!("  │    🌿 feature-branch");
-    println!("  │    │");
-    println!("  ├────┘");
-    println!("  │    │");
-    println!("  │    ├── 📌 fedcba9 Start feature implementation");
-    println!("  │    │");
-    println!("  │    │    🌿 bugfix");
-    println!("  │    │    │");
-    println!("  │    ├────┘");
-    println!("  │    │    │");
-    println!("  │    │    └── 📌 abcdef0 Fix critical bug");
-    println!("  │    │");
-    println!("  │    └── 📌 876543a Complete feature");
-    println!("  │");
-    println!("  │    🌿 experimental");
-    println!("  │    │");
-    println!("  └────┘");
-    println!("       │");
-    println!("       └── 📌 fedcba0 Experimental feature");
+    // Check if the graph is empty before iterating
+    if graph_lines.is_empty() {
+        println!("  No commits found in this repository.");
+        println!("  Create your first commit with {}", "pocket shove".bright_cyan());
+    } else {
+        // Print the graph
+        for line in &graph_lines {
+            println!("{}", line);
+        }
+    }
     
     Ok(())
 }

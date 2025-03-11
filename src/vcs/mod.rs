@@ -13,6 +13,7 @@ pub mod diff;
 pub mod merge;
 pub mod remote;
 pub mod commands;
+pub mod graph;
 
 // Re-export the main types for easier access
 pub use repository::{Repository, RepositoryError};
@@ -23,6 +24,7 @@ pub use objects::{ObjectStore, ObjectId, Tree, TreeEntry};
 pub use diff::{Diff, DiffResult, DiffOptions};
 pub use merge::{MergeResult, MergeStrategy, ConflictResolution};
 pub use remote::{Remote, RemoteError, RemoteTracking};
+pub use graph::generate_graph;
 
 // Common types used throughout the VCS module
 use std::path::{Path, PathBuf};
@@ -96,6 +98,14 @@ pub fn init() -> Result<()> {
     // Any global initialization needed for the VCS system
     Ok(())
 }
+
+pub use commands::{
+    status_command, pile_command, unpile_command, shove_command,
+    log_command, timeline_new_command, timeline_switch_command,
+    timeline_list_command, merge_command, remote_add_command,
+    remote_remove_command, remote_list_command, push_command,
+    graph_command, ignore_command
+};
 
 #[cfg(test)]
 mod tests {

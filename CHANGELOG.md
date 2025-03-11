@@ -2,6 +2,25 @@
 
 All notable changes to Pocket will be documented in this file using our letter-based versioning system.
 
+## v-pocket-R2A3-ncR3A1< (03212025 - Enhanced Version Control Features)
+
+### Added
+- Implemented proper graph command for visualizing timeline history
+- Added ignore command for managing .pocketignore patterns
+- Support for .pocketignore file to exclude files from version control
+
+### Changed
+- Refactored graph visualization to show actual repository timeline structure
+- Enhanced error handling for graph and ignore commands
+
+### Fixed
+- Fixed issues with the pile command
+- Improved timeline visualization in graph command
+
+### Notes
+- This version is only compatible with R3A1 and newer
+- Enhances the VCS functionality with better visualization and ignore patterns
+
 ## v-pocket-R3A2-ncR3A1< (03202025 - Version Control System Improvements)
 
 ### Added
@@ -134,14 +153,4 @@ Our versioning follows this format: `v-projectname-XN[-nc]`
 Where:
 - `v-projectname` identifies the project (pocket)
 - `X` is a letter indicating stability:
-  - `A` = Alpha (experimental, seeking feedback)
-  - `B` = Beta (still buggy but usable for testing)
-  - `C` = Candidate (almost ready for official release)
-  - `R` = Release (stable and ready for production)
-- `N` is a number indicating the iteration
-- `-nc` (optional) indicates compatibility issues with previous versions
-
-For example:
-- `v-pocket-A1`: First alpha release
-- `v-pocket-R2-nc`: Second stable release, not compatible with previous versions
-- `v-pocket-R3-nc1<`: Third stable release, only compatible with version 1 and newer 
+  - `

@@ -302,6 +302,21 @@ enum Commands {
         #[arg(value_name = "TIMELINE")]
         timeline: Option<String>,
     },
+
+    /// Manage ignore patterns
+    Ignore {
+        /// Pattern to add to ignore list
+        #[arg(short, long, value_name = "PATTERN")]
+        pattern: Option<String>,
+
+        /// Pattern to remove from ignore list
+        #[arg(short, long, value_name = "PATTERN")]
+        remove: Option<String>,
+
+        /// List all ignore patterns
+        #[arg(short, long)]
+        list: bool,
+    }
 }
 
 #[derive(Subcommand)]
@@ -515,6 +530,10 @@ fn main() -> Result<()> {
             let path = std::path::Path::new(".");
             vcs::commands::push_command(path, remote.as_deref(), timeline.as_deref())?;
         }
+        Commands::Ignore { pattern, remove, list } => {
+            let path = std::path::Path::new(".");
+            vcs::commands::ignore_command(path, pattern.as_deref(), remove.as_deref(), list)?;
+        }
     }
 
     Ok(())
@@ -552,6 +571,7 @@ fn print_custom_help() {
     println!("    remote              Manage remote repositories");
     println!("    fish                Fetch from a remote repository");
     println!("    push                Push to a remote repository");
+    println!("    ignore              Manage ignore patterns");
     println!("");
     
     println!("GENERAL COMMANDS:");
