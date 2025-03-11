@@ -6,11 +6,15 @@ use std::path::{Path, PathBuf};
 use std::collections::HashMap;
 use serde::{Serialize, Deserialize};
 use anyhow::{Result, anyhow};
+use std::fs;
+use toml;
+use chrono::Utc;
 
 use crate::vcs::{
     ShoveId, ObjectId, ObjectStore, Tree, TreeEntry,
-    Repository, Timeline, Shove, FileChange, ChangeType
+    Repository, Timeline, Shove, FileChange, ChangeType, Author
 };
+use crate::vcs::objects::{EntryType};
 
 /// Strategy to use when merging
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -163,11 +167,101 @@ impl<'a> Merger<'a> {
     
     /// Find the common ancestor of two shoves
     fn find_common_ancestor(&self, a: &ShoveId, b: &ShoveId) -> Result<Option<ShoveId>> {
-        // This is a placeholder for the actual implementation
-        // A real implementation would traverse the shove graph to find the common ancestor
+        // Load both shoves
+        let a_path = self.repo.path.join(".pocket").join("shoves").join(format!("{}.toml", a.as_str()));
+        let b_path = self.repo.path.join(".pocket").join("shoves").join(format!("{}.toml", b.as_str()));
         
-        // For now, just return None (no common ancestor)
+        if !a_path.exists() || !b_path.exists() {
+            return Err(anyhow!("One or both shoves not found"));
+        }
+        
+        // Load the shoves
+        let a_content = fs::read_to_string(&a_path)?;
+        let b_content = fs::read_to_string(&b_path)?;
+        
+        let a_shove: Shove = toml::from_str(&a_content)?;
+        let b_shove: Shove = toml::from_str(&b_content)?;
+        
+        // If either is an ancestor of the other, return it
+        if self.is_ancestor_of(a, b)? {
+            return Ok(Some(a.clone()));
+        }
+        
+        if self.is_ancestor_of(b, a)? {
+            return Ok(Some(b.clone()));
+        }
+        
+        // Otherwise, find the most recent common ancestor
+        // Start with all ancestors of A
+        let mut a_ancestors = self.get_ancestors(a)?;
+        
+        // For each ancestor of B, check if it's also an ancestor of A
+        for b_ancestor in self.get_ancestors(b)? {
+            if a_ancestors.contains(&b_ancestor) {
+                return Ok(Some(b_ancestor));
+            }
+        }
+        
+        // No common ancestor found
         Ok(None)
+    }
+    
+    // Check if a is an ancestor of b
+    fn is_ancestor_of(&self, a: &ShoveId, b: &ShoveId) -> Result<bool> {
+        if a == b {
+            return Ok(true);
+        }
+        
+        // Load b's shove
+        let b_path = self.repo.path.join(".pocket").join("shoves").join(format!("{}.toml", b.as_str()));
+        let b_content = fs::read_to_string(&b_path)?;
+        let b_shove: Shove = toml::from_str(&b_content)?;
+        
+        // Check if a is a direct parent of b
+        for parent_id in &b_shove.parent_ids {
+            if parent_id == a {
+                return Ok(true);
+            }
+            
+            // Recursively check if a is an ancestor of any of b's parents
+            if self.is_ancestor_of(a, parent_id)? {
+                return Ok(true);
+            }
+        }
+        
+        Ok(false)
+    }
+    
+    // Get all ancestors of a shove
+    fn get_ancestors(&self, id: &ShoveId) -> Result<Vec<ShoveId>> {
+        let mut ancestors = Vec::new();
+        let mut to_process = vec![id.clone()];
+        
+        while let Some(current_id) = to_process.pop() {
+            // Skip if we've already processed this shove
+            if ancestors.contains(&current_id) {
+                continue;
+            }
+            
+            // Add to ancestors
+            ancestors.push(current_id.clone());
+            
+            // Load the shove
+            let shove_path = self.repo.path.join(".pocket").join("shoves").join(format!("{}.toml", current_id.as_str()));
+            if !shove_path.exists() {
+                continue;
+            }
+            
+            let shove_content = fs::read_to_string(&shove_path)?;
+            let shove: Shove = toml::from_str(&shove_content)?;
+            
+            // Add all parents to the processing queue
+            for parent_id in shove.parent_ids {
+                to_process.push(parent_id);
+            }
+        }
+        
+        Ok(ancestors)
     }
     
     /// Perform a three-way merge
@@ -177,21 +271,307 @@ impl<'a> Merger<'a> {
         theirs: &ShoveId,
         base: Option<&ShoveId>,
     ) -> Result<MergeResult> {
-        // This is a placeholder for the actual implementation
-        // A real implementation would:
-        // 1. Get the trees for ours, theirs, and base
-        // 2. Compare the trees to find changes
-        // 3. Merge the changes
-        // 4. Create a new tree with the merged changes
-        // 5. Create a merge shove with the new tree
-        
-        // For now, just create a merge shove with the current tree
-        if let Some(base_id) = base {
-            self.create_merge_shove(ours, theirs, base_id)
+        // Get the base shove (common ancestor)
+        let base_shove = if let Some(base_id) = base {
+            // Load the base shove
+            let base_path = self.repo.path.join(".pocket").join("shoves").join(format!("{}.toml", base_id.as_str()));
+            if base_path.exists() {
+                let base_content = fs::read_to_string(&base_path)?;
+                Some(toml::from_str::<Shove>(&base_content)?)
+            } else {
+                return Err(anyhow!("Base shove not found: {}", base_id.as_str()));
+            }
         } else {
-            // No common ancestor, just create a merge shove
-            self.create_merge_shove(ours, theirs, ours)
+            None
+        };
+        
+        // Load our shove
+        let our_path = self.repo.path.join(".pocket").join("shoves").join(format!("{}.toml", ours.as_str()));
+        let our_content = fs::read_to_string(&our_path)?;
+        let our_shove: Shove = toml::from_str(&our_content)?;
+        
+        // Load their shove
+        let their_path = self.repo.path.join(".pocket").join("shoves").join(format!("{}.toml", theirs.as_str()));
+        let their_content = fs::read_to_string(&their_path)?;
+        let their_shove: Shove = toml::from_str(&their_content)?;
+        
+        // Get the trees
+        let our_tree_path = self.repo.path.join(".pocket").join("objects").join(our_shove.root_tree_id.as_str());
+        let our_tree_content = fs::read_to_string(&our_tree_path)?;
+        let our_tree: Tree = toml::from_str(&our_tree_content)?;
+        
+        let their_tree_path = self.repo.path.join(".pocket").join("objects").join(their_shove.root_tree_id.as_str());
+        let their_tree_content = fs::read_to_string(&their_tree_path)?;
+        let their_tree: Tree = toml::from_str(&their_tree_content)?;
+        
+        let base_tree = if let Some(base_shove) = &base_shove {
+            let base_tree_path = self.repo.path.join(".pocket").join("objects").join(base_shove.root_tree_id.as_str());
+            let base_tree_content = fs::read_to_string(&base_tree_path)?;
+            Some(toml::from_str::<Tree>(&base_tree_content)?)
+        } else {
+            None
+        };
+        
+        // Create maps for easier lookup
+        let mut our_entries = HashMap::new();
+        for entry in our_tree.entries {
+            our_entries.insert(entry.name.clone(), entry);
         }
+        
+        let mut their_entries = HashMap::new();
+        for entry in their_tree.entries {
+            their_entries.insert(entry.name.clone(), entry);
+        }
+        
+        let base_entries = if let Some(base_tree) = base_tree {
+            let mut entries = HashMap::new();
+            for entry in base_tree.entries {
+                entries.insert(entry.name.clone(), entry);
+            }
+            Some(entries)
+        } else {
+            None
+        };
+        
+        // Create a new tree for the merged result
+        let mut merged_entries = Vec::new();
+        let mut conflicts = Vec::new();
+        
+        // Process all files in our tree
+        for (name, our_entry) in &our_entries {
+            if our_entry.entry_type != EntryType::File {
+                // Skip non-file entries for simplicity
+                merged_entries.push(our_entry.clone());
+                continue;
+            }
+            
+            if let Some(their_entry) = their_entries.get(name) {
+                // File exists in both trees
+                if our_entry.id == their_entry.id {
+                    // Same content, no conflict
+                    merged_entries.push(our_entry.clone());
+                } else {
+                    // Different content, check base
+                    if let Some(base_entries) = &base_entries {
+                        if let Some(base_entry) = base_entries.get(name) {
+                            if our_entry.id == base_entry.id {
+                                // We didn't change, use theirs
+                                merged_entries.push(their_entry.clone());
+                            } else if their_entry.id == base_entry.id {
+                                // They didn't change, use ours
+                                merged_entries.push(our_entry.clone());
+                            } else {
+                                // Both changed, conflict
+                                match self.strategy {
+                                    MergeStrategy::Ours => {
+                                        // Use our version
+                                        merged_entries.push(our_entry.clone());
+                                    },
+                                    MergeStrategy::Theirs => {
+                                        // Use their version
+                                        merged_entries.push(their_entry.clone());
+                                    },
+                                    _ => {
+                                        // Create a conflict
+                                        conflicts.push(MergeConflict {
+                                            path: PathBuf::from(name),
+                                            base_id: Some(base_entry.id.clone()),
+                                            ours_id: Some(our_entry.id.clone()),
+                                            theirs_id: Some(their_entry.id.clone()),
+                                            resolution: None,
+                                        });
+                                        
+                                        // For now, use our version
+                                        merged_entries.push(our_entry.clone());
+                                    }
+                                }
+                            }
+                        } else {
+                            // Not in base, both added with different content
+                            match self.strategy {
+                                MergeStrategy::Ours => {
+                                    // Use our version
+                                    merged_entries.push(our_entry.clone());
+                                },
+                                MergeStrategy::Theirs => {
+                                    // Use their version
+                                    merged_entries.push(their_entry.clone());
+                                },
+                                _ => {
+                                    // Create a conflict
+                                    conflicts.push(MergeConflict {
+                                        path: PathBuf::from(name),
+                                        base_id: None,
+                                        ours_id: Some(our_entry.id.clone()),
+                                        theirs_id: Some(their_entry.id.clone()),
+                                        resolution: None,
+                                    });
+                                    
+                                    // For now, use our version
+                                    merged_entries.push(our_entry.clone());
+                                }
+                            }
+                        }
+                    } else {
+                        // No base, use strategy
+                        match self.strategy {
+                            MergeStrategy::Ours => {
+                                // Use our version
+                                merged_entries.push(our_entry.clone());
+                            },
+                            MergeStrategy::Theirs => {
+                                // Use their version
+                                merged_entries.push(their_entry.clone());
+                            },
+                            _ => {
+                                // Create a conflict
+                                conflicts.push(MergeConflict {
+                                    path: PathBuf::from(name),
+                                    base_id: None,
+                                    ours_id: Some(our_entry.id.clone()),
+                                    theirs_id: Some(their_entry.id.clone()),
+                                    resolution: None,
+                                });
+                                
+                                // For now, use our version
+                                merged_entries.push(our_entry.clone());
+                            }
+                        }
+                    }
+                }
+            } else {
+                // File only in our tree
+                if let Some(base_entries) = &base_entries {
+                    if let Some(_) = base_entries.get(name) {
+                        // In base but not in theirs, they deleted it
+                        match self.strategy {
+                            MergeStrategy::Ours => {
+                                // Keep our version
+                                merged_entries.push(our_entry.clone());
+                            },
+                            MergeStrategy::Theirs => {
+                                // They deleted it, so don't include
+                            },
+                            _ => {
+                                // Create a conflict
+                                conflicts.push(MergeConflict {
+                                    path: PathBuf::from(name),
+                                    base_id: Some(base_entries.get(name).unwrap().id.clone()),
+                                    ours_id: Some(our_entry.id.clone()),
+                                    theirs_id: None,
+                                    resolution: None,
+                                });
+                                
+                                // For now, keep our version
+                                merged_entries.push(our_entry.clone());
+                            }
+                        }
+                    } else {
+                        // Not in base, we added it
+                        merged_entries.push(our_entry.clone());
+                    }
+                } else {
+                    // No base, we added it
+                    merged_entries.push(our_entry.clone());
+                }
+            }
+        }
+        
+        // Process files only in their tree
+        for (name, their_entry) in &their_entries {
+            if their_entry.entry_type != EntryType::File {
+                // Skip non-file entries for simplicity
+                if !our_entries.contains_key(name) {
+                    merged_entries.push(their_entry.clone());
+                }
+                continue;
+            }
+            
+            if !our_entries.contains_key(name) {
+                // File only in their tree
+                if let Some(base_entries) = &base_entries {
+                    if let Some(_) = base_entries.get(name) {
+                        // In base but not in ours, we deleted it
+                        match self.strategy {
+                            MergeStrategy::Ours => {
+                                // We deleted it, so don't include
+                            },
+                            MergeStrategy::Theirs => {
+                                // Keep their version
+                                merged_entries.push(their_entry.clone());
+                            },
+                            _ => {
+                                // Create a conflict
+                                conflicts.push(MergeConflict {
+                                    path: PathBuf::from(name),
+                                    base_id: Some(base_entries.get(name).unwrap().id.clone()),
+                                    ours_id: None,
+                                    theirs_id: Some(their_entry.id.clone()),
+                                    resolution: None,
+                                });
+                                
+                                // For now, don't include (follow our deletion)
+                            }
+                        }
+                    } else {
+                        // Not in base, they added it
+                        merged_entries.push(their_entry.clone());
+                    }
+                } else {
+                    // No base, they added it
+                    merged_entries.push(their_entry.clone());
+                }
+            }
+        }
+        
+        // If there are conflicts and we're not using a strategy that resolves them automatically,
+        // return a result with conflicts
+        if !conflicts.is_empty() && self.strategy != MergeStrategy::Ours && self.strategy != MergeStrategy::Theirs {
+            return Ok(MergeResult {
+                success: false,
+                shove_id: None,
+                fast_forward: false,
+                conflicts,
+            });
+        }
+        
+        // Create a new tree with the merged entries
+        let merged_tree = Tree {
+            entries: merged_entries,
+        };
+        
+        // Store the merged tree
+        let object_store = ObjectStore::new(self.repo.path.clone());
+        let tree_id = object_store.store_tree(&merged_tree)?;
+        
+        // Create a new shove
+        let author = Author {
+            name: self.repo.config.user.name.clone(),
+            email: self.repo.config.user.email.clone(),
+            timestamp: Utc::now(),
+        };
+        
+        let mut parent_ids = vec![ours.clone()];
+        if ours != theirs {
+            parent_ids.push(theirs.clone());
+        }
+        
+        let message = format!("Merge {} into {}", 
+            their_shove.message.lines().next().unwrap_or(""),
+            our_shove.message.lines().next().unwrap_or(""));
+            
+        let shove = Shove::new(&self.repo.pile, parent_ids, author, &message, tree_id);
+        
+        // Save the shove
+        let shove_path = self.repo.path.join(".pocket").join("shoves").join(format!("{}.toml", shove.id.as_str()));
+        shove.save(&shove_path)?;
+        
+        Ok(MergeResult {
+            success: true,
+            shove_id: Some(shove.id.clone()),
+            fast_forward: false,
+            conflicts: Vec::new(),
+        })
     }
     
     /// Create a merge shove
@@ -201,16 +581,103 @@ impl<'a> Merger<'a> {
         theirs: &ShoveId,
         base: &ShoveId,
     ) -> Result<MergeResult> {
-        // This is a placeholder for the actual implementation
-        // A real implementation would create a new shove with the merged tree
+        // Load the shoves
+        let ours_path = self.repo.path.join(".pocket").join("shoves").join(format!("{}.toml", ours.as_str()));
+        let theirs_path = self.repo.path.join(".pocket").join("shoves").join(format!("{}.toml", theirs.as_str()));
         
-        // For now, just return a successful result with the "theirs" shove ID
+        let ours_content = fs::read_to_string(&ours_path)?;
+        let theirs_content = fs::read_to_string(&theirs_path)?;
+        
+        let our_shove: Shove = toml::from_str(&ours_content)?;
+        let their_shove: Shove = toml::from_str(&theirs_content)?;
+        
+        // Create a new merged tree
+        let merged_tree_id = self.merge_trees(&our_shove.root_tree_id, &their_shove.root_tree_id)?;
+        
+        // Create a new shove with both parents
+        let mut parent_ids = vec![our_shove.id.clone()];
+        parent_ids.push(their_shove.id.clone());
+        
+        // Create a merge message
+        let message = format!("Merge {} into {}", theirs.as_str(), ours.as_str());
+        
+        // Create the author information
+        let author = Author {
+            name: self.repo.config.user.name.clone(),
+            email: self.repo.config.user.email.clone(),
+            timestamp: Utc::now(),
+        };
+        
+        // Create the new shove
+        let new_shove = Shove::new(
+            &self.repo.pile,
+            parent_ids,
+            author,
+            &message,
+            merged_tree_id,
+        );
+        
+        // Save the shove
+        let shove_path = self.repo.path.join(".pocket").join("shoves").join(format!("{}.toml", new_shove.id.as_str()));
+        new_shove.save(&shove_path)?;
+        
+        // Update the current timeline's head
+        let timeline_path = self.repo.path.join(".pocket").join("timelines").join("current");
+        let mut timeline = Timeline::load(&timeline_path)?;
+        timeline.head = Some(new_shove.id.clone());
+        timeline.save(&timeline_path)?;
+        
+        // Return the result
         Ok(MergeResult {
             success: true,
-            shove_id: Some(theirs.clone()),
+            shove_id: Some(new_shove.id),
             fast_forward: false,
-            conflicts: vec![],
+            conflicts: Vec::new(),
         })
+    }
+    
+    fn merge_trees(&self, ours_id: &ObjectId, theirs_id: &ObjectId) -> Result<ObjectId> {
+        // Load the trees
+        let ours_path = self.repo.path.join(".pocket").join("objects").join(ours_id.as_str());
+        let theirs_path = self.repo.path.join(".pocket").join("objects").join(theirs_id.as_str());
+        
+        let ours_content = fs::read_to_string(&ours_path)?;
+        let theirs_content = fs::read_to_string(&theirs_path)?;
+        
+        let ours_tree: Tree = toml::from_str(&ours_content)?;
+        let theirs_tree: Tree = toml::from_str(&theirs_content)?;
+        
+        // Create a new tree with entries from both
+        let mut merged_entries = Vec::new();
+        let mut our_entries_map = std::collections::HashMap::new();
+        
+        // Add all our entries to the map for quick lookup
+        for entry in &ours_tree.entries {
+            our_entries_map.insert(entry.name.clone(), entry.clone());
+        }
+        
+        // Add all our entries to the merged tree
+        for entry in &ours_tree.entries {
+            merged_entries.push(entry.clone());
+        }
+        
+        // Add their entries if they don't exist in our tree
+        for entry in &theirs_tree.entries {
+            if !our_entries_map.contains_key(&entry.name) {
+                merged_entries.push(entry.clone());
+            }
+        }
+        
+        // Create the new tree
+        let merged_tree = Tree {
+            entries: merged_entries,
+        };
+        
+        // Save the tree
+        let object_store = ObjectStore::new(self.repo.path.clone());
+        let tree_id = object_store.store_tree(&merged_tree)?;
+        
+        Ok(tree_id)
     }
     
     // Additional methods would be implemented here:
