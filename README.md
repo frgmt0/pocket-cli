@@ -8,6 +8,25 @@ Pocket is a CLI tool that saves your code snippets and lets you find them later.
 
 Sometimes I think about how much time we waste looking for stuff we already wrote. It's like... probably at least 3 hours a week? Maybe more? Who knows. Anyway.
 
+## Testing the Alpha/Beta Version
+
+To test the latest beta version with VCS functionality, you'll need to compile from source:
+
+```bash
+# Clone the repository with the experimental branch
+git clone -b experimental/version-control-with-pocket https://github.com/frgmt0/pocket-cli.git
+cd pocket-cli
+
+# Build the release version
+cargo build --release
+
+# Run commands using the local binary
+./target/release/pocket status
+./target/release/pocket pile src/*
+./target/release/pocket shove -m "My first commit"
+```
+
+
 ## Commands
 This is the majority of your work here, and its pretty easy to grasp.
 
