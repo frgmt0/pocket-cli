@@ -26,7 +26,7 @@ cargo build --release
 ./target/release/pocket shove -m "My first commit"
 ```
 
-The version control commands are still in beta, so please report any issues you encounter.
+The version control commands are still in alpha, so please report any issues you encounter so I can make it better.
 
 ## Commands
 This is the majority of your work here, and its pretty easy to grasp.
