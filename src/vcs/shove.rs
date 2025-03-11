@@ -8,8 +8,10 @@ use chrono::{DateTime, Utc};
 use serde::{Serialize, Deserialize};
 use anyhow::{Result, anyhow};
 use uuid::Uuid;
+use std::collections::HashMap;
 
-use crate::vcs::{ObjectId, Pile, FileChange, ChangeType};
+use crate::vcs::{ObjectId, Pile, FileChange, ChangeType, Repository, Tree};
+use crate::vcs::objects::EntryType;
 
 /// A unique identifier for a shove
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -96,12 +98,94 @@ impl Shove {
     }
     
     /// Get the changes introduced by this shove
-    pub fn get_changes(&self) -> Result<Vec<FileChange>> {
-        // This would compare this shove with its parent(s)
-        // to determine what files were changed
+    pub fn get_changes(&self, repo: &Repository) -> Result<Vec<FileChange>> {
+        let mut changes = Vec::new();
         
-        // Placeholder implementation
-        Ok(vec![])
+        // If this is the first shove, all files are considered added
+        if self.parent_ids.is_empty() {
+            // Get the tree for this shove
+            let tree_path = repo.path.join(".pocket").join("objects").join(self.root_tree_id.as_str());
+            let tree_content = fs::read_to_string(&tree_path)?;
+            let tree: Tree = toml::from_str(&tree_content)?;
+            
+            // All files in the tree are considered added
+            for entry in tree.entries {
+                if entry.entry_type == EntryType::File {
+                    changes.push(FileChange {
+                        path: PathBuf::from(&entry.name),
+                        change_type: ChangeType::Added,
+                        old_id: None,
+                        new_id: Some(entry.id),
+                    });
+                }
+            }
+            
+            return Ok(changes);
+        }
+        
+        // Get the parent shove
+        let parent_id = &self.parent_ids[0]; // For simplicity, just use the first parent
+        let parent_path = repo.path.join(".pocket").join("shoves").join(format!("{}.toml", parent_id.as_str()));
+        let parent_content = fs::read_to_string(&parent_path)?;
+        let parent: Shove = toml::from_str(&parent_content)?;
+        
+        // Get the trees for both shoves
+        let parent_tree_path = repo.path.join(".pocket").join("objects").join(parent.root_tree_id.as_str());
+        let current_tree_path = repo.path.join(".pocket").join("objects").join(self.root_tree_id.as_str());
+        
+        let parent_tree_content = fs::read_to_string(&parent_tree_path)?;
+        let current_tree_content = fs::read_to_string(&current_tree_path)?;
+        
+        let parent_tree: Tree = toml::from_str(&parent_tree_content)?;
+        let current_tree: Tree = toml::from_str(&current_tree_content)?;
+        
+        // Create maps for easier lookup
+        let mut parent_entries = HashMap::new();
+        for entry in parent_tree.entries {
+            parent_entries.insert(entry.name.clone(), entry);
+        }
+        
+        // Find added and modified files
+        for entry in &current_tree.entries {
+            if entry.entry_type == EntryType::File {
+                if let Some(parent_entry) = parent_entries.get(&entry.name) {
+                    // File exists in both trees, check if modified
+                    if parent_entry.id != entry.id {
+                        changes.push(FileChange {
+                            path: PathBuf::from(&entry.name),
+                            change_type: ChangeType::Modified,
+                            old_id: Some(parent_entry.id.clone()),
+                            new_id: Some(entry.id.clone()),
+                        });
+                    }
+                } else {
+                    // File only exists in current tree, it's added
+                    changes.push(FileChange {
+                        path: PathBuf::from(&entry.name),
+                        change_type: ChangeType::Added,
+                        old_id: None,
+                        new_id: Some(entry.id.clone()),
+                    });
+                }
+            }
+        }
+        
+        // Find deleted files
+        for (name, entry) in parent_entries {
+            if entry.entry_type == EntryType::File {
+                let exists = current_tree.entries.iter().any(|e| e.name == name);
+                if !exists {
+                    changes.push(FileChange {
+                        path: PathBuf::from(&name),
+                        change_type: ChangeType::Deleted,
+                        old_id: Some(entry.id),
+                        new_id: None,
+                    });
+                }
+            }
+        }
+        
+        Ok(changes)
     }
     
     // Additional methods would be implemented here:
