@@ -13,8 +13,8 @@ Sometimes I think about how much time we waste looking for stuff we already wrot
 To test the latest beta version with VCS functionality, you'll need to compile from source:
 
 ```bash
-# Clone the repository
-git clone https://github.com/frgmt0/pocket-cli.git
+# Clone the repository with the experimental branch
+git clone -b experimental/version-control-with-pocket https://github.com/frgmt0/pocket-cli.git
 cd pocket-cli
 
 # Build the release version
