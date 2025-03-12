@@ -3,6 +3,8 @@
 //! This module provides a plugin system for extending Pocket CLI functionality.
 //! Plugins can add new commands, modify existing behavior, or provide additional features.
 
+pub mod backup;
+
 use std::collections::HashMap;
 use std::path::Path;
 use anyhow::{Result, Context};
@@ -136,6 +138,10 @@ impl PluginManager {
         // For example:
         // self.register_plugin(Box::new(BackupPlugin::new()))?;
         
+        // Register the backup plugin
+        use crate::plugins::backup::BackupPlugin;
+        self.register_plugin(Box::new(BackupPlugin::new(&self.plugin_dir)))?;
+        
         Ok(())
     }
     
@@ -243,7 +249,4 @@ impl Drop for PluginManager {
         // Attempt to clean up plugins when the manager is dropped
         let _ = self.cleanup();
     }
-}
-
-// Re-export plugin modules
-pub mod backup; 
+} 
