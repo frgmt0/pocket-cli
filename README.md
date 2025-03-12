@@ -52,7 +52,9 @@ For more detailed information, check out the documentation, which we've actually
 If you encounter any issues or have questions, please [create an issue](https://github.com/frgmt0/pocket/issues) on GitHub. Be sure to include details about your environment and the steps to reproduce the problem. The more specific you are, the faster we can help—vague bug reports are the digital equivalent of "it hurts when I do something."
 
 ## Join the discord
-<iframe src="https://discord.com/widget?id=1307538781255241790&theme=dark" width="350" height="500" allowtransparency="true" frameborder="0" sandbox="allow-popups allow-popups-to-escape-sandbox allow-same-origin allow-scripts"></iframe>
+<div>
+  <iframe src="https://discord.com/widget?id=1307538781255241790&theme=dark" width="350" height="500" allowtransparency="true" frameborder="0" sandbox="allow-popups allow-popups-to-escape-sandbox allow-same-origin allow-scripts"></iframe>
+</div>
 
 ## Version
 
