@@ -1,5 +1,7 @@
 # <img src="assets/images/doggie.gif" width="40" alt="Pocket Dog"> Pocket
 
+---
+
 [![Hits-of-Code](https://hitsofcode.com/github/frgmt0/pocket-cli?branch=main)](https://hitsofcode.com/github/frgmt0/pocket-cli/view?branch=main)
 [![Crates.io](https://img.shields.io/crates/v/pocket-cli)](https://crates.io/crates/pocket-cli)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
