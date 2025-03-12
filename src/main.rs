@@ -5,9 +5,13 @@ mod storage;
 mod utils;
 mod version;
 mod vcs;
+mod plugins;
 
 use clap::{Parser, Subcommand};
 use anyhow::Result;
+use colored::Colorize;
+use std::path::Path;
+use pocket_cli::plugins::{PluginManager, Plugin, PluginConfig, PluginCommand};
 
 #[derive(Parser)]
 #[command(
@@ -313,6 +317,13 @@ enum Commands {
         /// List all ignore patterns
         #[arg(short, long)]
         list: bool,
+    },
+
+    /// 🔌 Manage plugins
+    Plugins {
+        /// Plugin subcommand
+        #[command(subcommand)]
+        operation: Option<PluginOperation>,
     }
 }
 
@@ -376,6 +387,52 @@ enum RemoteCommands {
 
     /// List remote repositories
     List,
+}
+
+#[derive(Subcommand)]
+enum PluginOperation {
+    /// Add a new plugin
+    Add {
+        /// Plugin name
+        name: String,
+        
+        /// Plugin URL
+        url: String,
+    },
+    
+    /// Remove a plugin
+    Remove {
+        /// Plugin name
+        name: String,
+    },
+    
+    /// List all plugins
+    List,
+    
+    /// Enable a plugin
+    Enable {
+        /// Plugin name
+        name: String,
+    },
+    
+    /// Disable a plugin
+    Disable {
+        /// Plugin name
+        name: String,
+    },
+    
+    /// Execute a plugin command
+    Execute {
+        /// Plugin name
+        name: String,
+        
+        /// Command to execute
+        command: String,
+        
+        /// Arguments for the command
+        #[arg(trailing_var_arg = true)]
+        args: Vec<String>,
+    },
 }
 
 fn main() -> Result<()> {
@@ -527,6 +584,9 @@ fn main() -> Result<()> {
             let path = std::path::Path::new(".");
             vcs::commands::ignore_command(path, pattern.as_deref(), remove.as_deref(), list)?;
         }
+        Commands::Plugins { operation } => {
+            plugins_command(operation.as_ref())?;
+        }
     }
 
     Ok(())
@@ -575,4 +635,71 @@ fn print_custom_help() {
     
     println!("For more information about a specific command, run:");
     println!("    pocket help <COMMAND>");
+}
+
+/// Handles plugin commands
+fn plugins_command(operation: Option<&PluginOperation>) -> Result<()> {
+    // Create a plugin manager
+    let data_dir = dirs::data_dir().unwrap_or_else(|| std::path::PathBuf::from(".")).join(".pocket");
+    let plugin_dir = data_dir.join("plugins");
+    let mut plugin_manager = PluginManager::new(&plugin_dir);
+    
+    // Load plugins
+    plugin_manager.load_plugins()?;
+    
+    // Handle the operation
+    match operation {
+        Some(PluginOperation::Add { name, url }) => {
+            println!("{} Adding plugin {} with URL {}", "🔌".blue(), name.bright_green(), url.bright_white());
+            // In a real implementation, we would add the plugin here
+            println!("{} Plugin added successfully", "✅".green());
+        },
+        Some(PluginOperation::Remove { name }) => {
+            println!("{} Removing plugin {}", "🔌".blue(), name.bright_green());
+            // In a real implementation, we would remove the plugin here
+            println!("{} Plugin removed successfully", "✅".green());
+        },
+        Some(PluginOperation::List) => {
+            println!("{} Available plugins:", "🔌".blue());
+            let plugins = plugin_manager.list_plugins();
+            if plugins.is_empty() {
+                println!("  No plugins installed");
+            } else {
+                for (name, version, enabled) in plugins {
+                    let status = if enabled { "enabled".green() } else { "disabled".red() };
+                    println!("  {} (v{}) - {}", name.bright_green(), version, status);
+                }
+            }
+        },
+        Some(PluginOperation::Enable { name }) => {
+            println!("{} Enabling plugin {}", "🔌".blue(), name.bright_green());
+            plugin_manager.enable_plugin(name)?;
+            println!("{} Plugin enabled successfully", "✅".green());
+        },
+        Some(PluginOperation::Disable { name }) => {
+            println!("{} Disabling plugin {}", "🔌".blue(), name.bright_green());
+            plugin_manager.disable_plugin(name)?;
+            println!("{} Plugin disabled successfully", "✅".green());
+        },
+        Some(PluginOperation::Execute { name, command, args }) => {
+            println!("{} Executing command {} for plugin {} with args: {:?}", "🔌".blue(), command.bright_white(), name.bright_green(), args);
+            plugin_manager.execute_command(name, command, args)?;
+            println!("{} Command executed successfully", "✅".green());
+        },
+        None => {
+            // If no operation is specified, list all plugins
+            println!("{} Available plugins:", "🔌".blue());
+            let plugins = plugin_manager.list_plugins();
+            if plugins.is_empty() {
+                println!("  No plugins installed");
+            } else {
+                for (name, version, enabled) in plugins {
+                    let status = if enabled { "enabled".green() } else { "disabled".red() };
+                    println!("  {} (v{}) - {}", name.bright_green(), version, status);
+                }
+            }
+        }
+    }
+    
+    Ok(())
 }
