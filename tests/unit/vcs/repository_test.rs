@@ -6,6 +6,7 @@
 use std::path::Path;
 use tempfile::TempDir;
 use std::fs;
+use anyhow::Result;
 
 mod common;
 use common::{create_temp_dir, setup_test_repository, create_test_file};
@@ -27,33 +28,36 @@ mod tests {
 
     #[test]
     /// Test that a new repository can be created successfully
-    fn test_new_repository_creation() {
+    fn test_new_repository_creation() -> Result<()> {
         let temp_dir = create_temp_dir();
         let repo_path = temp_dir.path();
         
         // Create a new repository
-        let result = Repository::init(repo_path);
-        assert!(result.is_ok(), "Failed to create repository: {:?}", result.err());
+        Repository::init(repo_path)?;
         
         // Verify .pocket directory exists
         assert!(repo_path.join(".pocket").exists(), ".pocket directory was not created");
         
         // Verify config.toml exists
         assert!(repo_path.join(".pocket/config.toml").exists(), "config.toml was not created");
+        
+        Ok(())
     }
     
     #[test]
     /// Test that an existing repository can be opened
-    fn test_open_existing_repository() {
+    fn test_open_existing_repository() -> Result<()> {
         let temp_dir = create_temp_dir();
         let repo_path = temp_dir.path();
         
         // Create a new repository first
-        Repository::init(repo_path).expect("Failed to create repository");
+        Repository::init(repo_path)?;
         
         // Open the existing repository
         let result = Repository::open(repo_path);
         assert!(result.is_ok(), "Failed to open repository: {:?}", result.err());
+        
+        Ok(())
     }
     
     #[test]

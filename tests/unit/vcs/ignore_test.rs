@@ -2,40 +2,42 @@
 //! 
 //! These tests verify that the .pocketignore file works correctly.
 
-mod common;
-use common::{create_temp_dir, setup_test_repository, create_test_file};
+use anyhow::Result;
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use pocket::vcs::Repository;
+    use pocket_cli::vcs::Repository;
+    use crate::common::{create_temp_dir, create_test_file};
     use std::fs;
     
     #[test]
     /// Test that ignored files are not added to the repository
-    fn test_ignore_files() {
+    fn test_ignore_files() -> Result<()> {
         let temp_dir = create_temp_dir();
-        let repo_path = setup_test_repository(temp_dir.path());
+        let repo_path = temp_dir.path();
+        
+        // Create a new repository
+        Repository::init(repo_path)?;
         
         // Create a .pocketignore file with patterns
         let ignore_content = "*.log\ntmp/\n";
-        fs::write(repo_path.join(".pocketignore"), ignore_content)
-            .expect("Failed to write .pocketignore file");
+        fs::write(repo_path.join(".pocketignore"), ignore_content)?;
         
         // Create test files
-        create_test_file(repo_path.join("test.txt"), "Regular file");
-        create_test_file(repo_path.join("test.log"), "Log file that should be ignored");
-        fs::create_dir_all(repo_path.join("tmp")).expect("Failed to create tmp directory");
-        create_test_file(repo_path.join("tmp/temp.txt"), "Temp file that should be ignored");
+        create_test_file(repo_path.join("test.txt"), "Regular file")?;
+        create_test_file(repo_path.join("test.log"), "Log file that should be ignored")?;
+        fs::create_dir_all(repo_path.join("tmp"))?;
+        create_test_file(repo_path.join("tmp/temp.txt"), "Temp file that should be ignored")?;
         
         // Open the repository
-        let mut repo = Repository::open(&repo_path).expect("Failed to open repository");
+        let mut repo = Repository::open(repo_path)?;
         
         // Add all files (should respect ignore patterns)
-        repo.add_all().expect("Failed to add all files");
+        repo.add_all()?;
         
         // Get staged files
-        let staged_files = repo.get_staged_files().expect("Failed to get staged files");
+        let staged_files = repo.get_staged_files()?;
         
         // Verify that test.txt is staged
         assert!(staged_files.iter().any(|p| p.ends_with("test.txt")), "test.txt should be staged");
@@ -45,29 +47,39 @@ mod tests {
         
         // Verify that tmp/temp.txt is not staged (ignored)
         assert!(!staged_files.iter().any(|p| p.ends_with("temp.txt")), "tmp/temp.txt should be ignored");
+        
+        Ok(())
     }
     
     #[test]
     /// Test adding and removing ignore patterns
-    fn test_add_remove_ignore_patterns() {
+    fn test_add_remove_ignore_patterns() -> Result<()> {
         let temp_dir = create_temp_dir();
-        let repo_path = setup_test_repository(temp_dir.path());
+        let repo_path = temp_dir.path();
+        
+        // Create a new repository
+        Repository::init(repo_path)?;
         
         // Open the repository
-        let mut repo = Repository::open(&repo_path).expect("Failed to open repository");
+        let mut repo = Repository::open(repo_path)?;
         
-        // Add a new ignore pattern
-        repo.add_ignore_pattern("*.new_pattern").expect("Failed to add ignore pattern");
+        // Add ignore patterns
+        repo.add_ignore_pattern("*.log")?;
+        repo.add_ignore_pattern("tmp/")?;
         
-        // Verify the new pattern is in the repository
-        let ignore_patterns = repo.get_ignore_patterns().expect("Failed to get ignore patterns");
-        assert!(ignore_patterns.contains("*.new_pattern"), "New pattern was not added");
+        // Verify patterns are in .pocketignore
+        let ignore_content = fs::read_to_string(repo_path.join(".pocketignore"))?;
+        assert!(ignore_content.contains("*.log"), ".pocketignore should contain *.log pattern");
+        assert!(ignore_content.contains("tmp/"), ".pocketignore should contain tmp/ pattern");
         
-        // Remove the new pattern
-        repo.remove_ignore_pattern("*.new_pattern").expect("Failed to remove ignore pattern");
+        // Remove an ignore pattern
+        repo.remove_ignore_pattern("*.log")?;
         
-        // Verify the new pattern is removed
-        let updated_ignore_patterns = repo.get_ignore_patterns().expect("Failed to get updated ignore patterns");
-        assert!(!updated_ignore_patterns.contains("*.new_pattern"), "New pattern was not removed");
+        // Verify pattern was removed
+        let ignore_content = fs::read_to_string(repo_path.join(".pocketignore"))?;
+        assert!(!ignore_content.contains("*.log"), ".pocketignore should not contain *.log pattern");
+        assert!(ignore_content.contains("tmp/"), ".pocketignore should still contain tmp/ pattern");
+        
+        Ok(())
     }
 } 
