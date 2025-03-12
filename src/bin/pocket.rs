@@ -405,12 +405,12 @@ fn plugins_command(path: &Path, operation: Option<&PluginOperation>) -> Result<(
         },
         Some(PluginOperation::Disable { name }) => {
             println!("{} Disabling plugin {}", "🔌".blue(), name.bright_green());
-            // In a real implementation, we would disable the plugin here
+            plugin_manager.disable_plugin(name)?;
             println!("{} Plugin disabled successfully", "✅".green());
         },
         Some(PluginOperation::Execute { name, command, args }) => {
             println!("{} Executing command {} for plugin {} with args: {:?}", "🔌".blue(), command.bright_white(), name.bright_green(), args);
-            // In a real implementation, we would execute the command here
+            plugin_manager.execute_command(name, command, args)?;
             println!("{} Command executed successfully", "✅".green());
         },
         None => {

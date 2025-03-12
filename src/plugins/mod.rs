@@ -134,13 +134,14 @@ impl PluginManager {
     
     /// Registers built-in plugins
     fn register_builtin_plugins(&mut self) -> Result<()> {
-        // This is where built-in plugins would be registered
-        // For example:
-        // self.register_plugin(Box::new(BackupPlugin::new()))?;
-        
         // Register the backup plugin
         use crate::plugins::backup::BackupPlugin;
-        self.register_plugin(Box::new(BackupPlugin::new(&self.plugin_dir)))?;
+        
+        // Create the data directory path (parent of plugin_dir)
+        let data_dir = self.plugin_dir.parent().unwrap_or(&self.plugin_dir).to_path_buf();
+        
+        // Register the backup plugin
+        self.register_plugin(Box::new(BackupPlugin::new(data_dir)))?;
         
         Ok(())
     }
