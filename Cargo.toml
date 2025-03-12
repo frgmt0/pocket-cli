@@ -1,6 +1,6 @@
 [package]
 name = "pocket-cli"
-version = "0.5.2"
+version = "0.6.0"
 edition = "2021"
 description = "A CLI tool for saving, organizing, and retrieving code snippets with integrated version control"
 authors = ["frgmt0"]

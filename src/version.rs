@@ -4,16 +4,16 @@
 /// and our letter-based versioning system that prioritizes communication
 
 /// The current version in letter-based format
-pub const VERSION_LETTER: &str = "v-pocket-R3A1-nc";
+pub const VERSION_LETTER: &str = "v-pocket-R3B1-ncR2<";
 
 /// The current version as a date string (MMDDYYYY) - for internal tracking
-pub const VERSION_DATE: &str = "03152025";
+pub const VERSION_DATE: &str = "03252025";
 
 /// The current version as a human-readable string
-pub const VERSION_STRING: &str = "Pocket v-pocket-R3A1-nc (03152025 - Version Control System)";
+pub const VERSION_STRING: &str = "Pocket v-pocket-R3B1-ncR2< (03252025 - Plugin System)";
 
 /// Compatibility information
-pub const COMPATIBILITY: Option<&str> = Some("Not compatible with previous versions");
+pub const COMPATIBILITY: Option<&str> = Some("Compatibility only extends to basic functions of Pocket and does not include any VCS support or Plugin support");
 
 /// Get the current version as a letter-based string
 pub fn get_version_letter() -> &'static str {
@@ -36,9 +36,9 @@ pub fn get_version() -> Version {
         letter: VERSION_LETTER,
         date: VERSION_DATE,
         semver: env!("CARGO_PKG_VERSION"),
-        name: "Version Control System",
+        name: "Plugin System",
         compatibility: COMPATIBILITY,
-        stability: Stability::Alpha,
+        stability: Stability::Beta,
     }
 }
 

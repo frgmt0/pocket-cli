@@ -2,6 +2,23 @@
 
 All notable changes to Pocket will be documented in this file using our letter-based versioning system.
 
+## v-pocket-R3B1-ncR2< (03252025 - Plugin System)
+
+### Added
+- Implemented plugin architecture for extending Pocket functionality
+- Added backup plugin for creating and managing repository backups
+- Added plugin commands to the CLI interface (list, enable, disable, execute)
+- Support for plugin configuration management
+
+### Changed
+- Enhanced CLI interface to support plugin commands
+- Improved error handling for plugin operations
+
+### Notes
+- Compatibility only extends to basic functions of Pocket and does not include any VCS support or Plugin support
+- For VCS support, you will need a minimum of R3A1 (not recommended because it's alpha version) or R3A2 (also not recommended but better than A1)
+- For plugin support, you will need R3B1 minimum and will be fully supported at a full R3 release
+
 ## v-pocket-R2A3-ncR3A1< (03212025 - Enhanced Version Control Features)
 
 ### Added
