@@ -55,8 +55,8 @@ impl Graph {
         let mut timelines = HashMap::new();
         
         // Load all timelines
-        for timeline_entry in repo.get_timelines()? {
-            let timeline = repo.get_timeline(&timeline_entry.name)?;
+        for timeline_entry in repo.list_timelines()? {
+            let timeline = repo.load_timeline(&timeline_entry.name)?;
             timelines.insert(timeline_entry.name.clone(), timeline.head.clone());
         }
         
@@ -69,7 +69,7 @@ impl Graph {
                 visited.insert(current_id.clone());
                 
                 if !nodes.contains_key(&current_id) {
-                    let shove = repo.get_shove(&current_id)?;
+                    let shove = repo.load_shove(&current_id)?;
                     
                     let node = GraphNode {
                         id: current_id.clone(),
