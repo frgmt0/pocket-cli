@@ -3,7 +3,10 @@
 //! This file exports all the modules needed by the binary and tests.
 
 // Re-export modules
-pub mod models;
-pub mod storage;
 pub mod vcs;
+pub mod storage;
+pub mod models;
+pub mod utils;
+pub mod version;
+pub mod plugins;
 // Add any other modules that need to be accessible to tests 
