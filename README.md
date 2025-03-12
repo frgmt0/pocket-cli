@@ -1,5 +1,4 @@
 # <img src="assets/images/doggie.gif" width="40" alt="Pocket Dog"> Pocket
-*Where your code snippets go to thrive, not disappear into the digital void*
 
 [![Hits-of-Code](https://hitsofcode.com/github/frgmt0/pocket-cli?branch=main)](https://hitsofcode.com/github/frgmt0/pocket-cli/view?branch=main)
 [![Crates.io](https://img.shields.io/crates/v/pocket-cli)](https://crates.io/crates/pocket-cli)
