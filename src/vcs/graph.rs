@@ -55,8 +55,8 @@ impl Graph {
         let mut timelines = HashMap::new();
         
         // Load all timelines
-        for timeline_entry in repo.list_timelines()? {
-            let timeline = repo.load_timeline(&timeline_entry.name)?;
+        for timeline_entry in repo.get_timelines()? {
+            let timeline = repo.get_timeline(&timeline_entry.name)?;
             timelines.insert(timeline_entry.name.clone(), timeline.head.clone());
         }
         
@@ -69,7 +69,7 @@ impl Graph {
                 visited.insert(current_id.clone());
                 
                 if !nodes.contains_key(&current_id) {
-                    let shove = repo.load_shove(&current_id)?;
+                    let shove = repo.get_shove(&current_id)?;
                     
                     let node = GraphNode {
                         id: current_id.clone(),
@@ -150,8 +150,9 @@ impl Graph {
         for (timeline_name, head_id) in &self.timelines {
             if let Some(node) = self.nodes.get(head_id) {
                 lines.push(format!("  🌿 {}", timeline_name.bright_green()));
+                let head_id_short = &head_id.as_str()[0..8];
                 lines.push(format!("     └── {} {}", 
-                        head_id.as_str()[0..8].bright_yellow(), 
+                        head_id_short.bright_yellow(), 
                         node.message.bright_white()));
             }
         }
@@ -196,11 +197,12 @@ impl Graph {
             "".to_string()
         };
         
+        let node_id_short = &node_id.as_str()[0..8];
         lines.push(format!("{}{}{}{} {}", 
             prefix, 
             branch_symbol, 
             timeline_indicators,
-            node_id.as_str()[0..8].bright_yellow(), 
+            node_id_short.bright_yellow(), 
             node.message.bright_white()));
         
         // Generate lines for children
