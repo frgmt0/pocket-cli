@@ -1,7 +1,7 @@
 # <img src="assets/images/doggie.gif" width="40" alt="Pocket Dog"> Pocket
 *Where your code snippets go to thrive, not disappear into the digital void*
 
-[![Lines of Code](https://sonarcloud.io/api/project_badges/measure?project=frgmt0_pocket&metric=ncloc)](https://sonarcloud.io/summary/new_code?id=frgmt0_pocket)
+[![Lines of Code](https://sonarcloud.io/api/project_badges/measure?project=frgmt0_pocket-cli&metric=ncloc)](https://sonarcloud.io/summary/new_code?id=frgmt0_pocket-cli)
 [![Crates.io](https://img.shields.io/crates/v/pocket-cli)](https://crates.io/crates/pocket-cli)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](https://github.com/frgmt0/pocket/pulls)
