@@ -4,14 +4,12 @@
 
 use std::path::{Path, PathBuf};
 use std::fs;
-use std::io;
 use chrono::{DateTime, Utc};
 use anyhow::{Result, Context};
 use serde::{Serialize, Deserialize};
 
 use crate::plugins::{Plugin, PluginConfig, PluginCommand};
-use crate::vcs::repository::Repository;
-use crate::storage::SnippetStorage;
+use crate::storage::StorageManager;
 
 /// Configuration for the backup plugin
 #[derive(Debug, Clone, Serialize, Deserialize)]

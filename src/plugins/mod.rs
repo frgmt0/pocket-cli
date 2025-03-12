@@ -109,7 +109,7 @@ impl PluginManager {
         
         if !config_path.exists() {
             // Create a default configuration if none exists
-            let default_configs = HashMap::new();
+            let default_configs: HashMap<String, PluginConfig> = HashMap::new();
             let json = serde_json::to_string_pretty(&default_configs)?;
             std::fs::write(&config_path, json)?;
             return Ok(());
