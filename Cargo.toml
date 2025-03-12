@@ -1,6 +1,6 @@
 [package]
 name = "pocket-cli"
-version = "0.4.0"
+version = "0.5.2"
 edition = "2021"
 description = "A CLI tool for saving, organizing, and retrieving code snippets"
 authors = ["frgmt0"]
@@ -9,7 +9,7 @@ license = "MIT"
 # Define the binary name as 'pocket' instead of the default 'pocket-cli'
 [[bin]]
 name = "pocket"
-path = "src/main.rs"
+path = "src/bin/pocket.rs"
 
 [dependencies]
 clap = { version = "4.4", features = ["derive"] }
@@ -26,3 +26,9 @@ thiserror = "2.0"
 anyhow = "1.0"
 toml = "0.8"
 tempfile = "3.8"
+colored = "2.0"
+
+[dev-dependencies]
+tempfile = "3.8"
+assert_fs = "1.0"
+predicates = "3.0"
