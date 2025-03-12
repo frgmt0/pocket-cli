@@ -3,11 +3,14 @@ use crate::storage::StorageManager;
 use crate::search::SearchEngine;
 use crate::utils;
 use anyhow::{Result, anyhow, Context};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use owo_colors::OwoColorize;
 use std::process::Command;
 use dialoguer::Confirm;
 use std::fs;
+use std::collections::HashMap;
+use walkdir::WalkDir;
+use regex::Regex;
 
 /// Add content to pocket storage
 pub fn add_command(
@@ -226,12 +229,16 @@ pub fn search_command(
     limit: usize,
     backpack: Option<String>,
     exact: bool,
+    package: bool,
 ) -> Result<()> {
+    if package {
+        return search_packages(&query, limit);
+    }
+    
     let storage = StorageManager::new()?;
-    let search_engine = SearchEngine::new(storage);
+    let search_engine = SearchEngine::new(storage.clone());
     
     // Load config to get search algorithm
-    let storage = StorageManager::new()?;
     let config = storage.load_config()?;
     
     let algorithm = if exact {
@@ -240,30 +247,979 @@ pub fn search_command(
         config.search.algorithm
     };
     
-    // Search for entries
+    // Search for entries (backpack is optional, defaults to searching all backpacks)
     let results = search_engine.search(&query, limit, backpack.as_deref(), algorithm)?;
     
     if results.is_empty() {
-        println!("No matching entries found");
+        println!("No matching entries found for '{}'", query.cyan());
         return Ok(());
     }
     
     // Display results
-    println!("Search results for '{}':", query);
+    println!("\n🔍 Search results for '{}':", query.cyan().bold());
+    println!("─────────────────────────────────────────────────────");
+    
     for (i, result) in results.iter().enumerate() {
-        println!("\n{}. {} - {} (score: {:.2})", 
-            i + 1, 
-            result.entry.id, 
-            result.entry.title,
+        // Display result header with backpack info if available
+        let backpack_info = match &result.backpack {
+            Some(name) => format!(" [in backpack: {}]", name.green()),
+            None => "".to_string()
+        };
+        
+        println!("\n{}. {} - {}{} (score: {:.2})", 
+            (i + 1).to_string().bold().yellow(), 
+            result.entry.id.bright_blue(), 
+            result.entry.title.bold(),
+            backpack_info,
             result.score
         );
         
-        // Show a preview of the content with highlighting
-        let preview = search_engine.get_highlighted_content(&result.content, &query, 100);
-        println!("   {}", preview);
+        // Show tags if present
+        if !result.entry.tags.is_empty() {
+            let tags = result.entry.tags.iter()
+                .map(|t| format!("#{}", t))
+                .collect::<Vec<_>>()
+                .join(" ");
+            println!("   Tags: {}", tags.cyan());
+        }
+        
+        // Display highlights
+        if !result.highlights.is_empty() {
+            println!("   Matching context:");
+            for (h_idx, highlight) in result.highlights.iter().enumerate() {
+                if h_idx > 0 {
+                    println!("   ─────────────");
+                }
+                println!("   {}", highlight);
+            }
+        }
+    }
+    
+    // Show usage hint
+    println!("\n💡 Tip: Use 'pocket show <ID>' to view entire entry content");
+    
+    Ok(())
+}
+
+/// Search for packages that match the description
+fn search_packages(query: &str, limit: usize) -> Result<()> {
+    println!("🔍 Searching for packages matching: {}", query.cyan().bold());
+    
+    // Detect programming language from current directory
+    let (language, _files) = detect_language_from_directory(".")?;
+    
+    println!("📦 Detected language: {}", language.green().bold());
+    
+    // Search for packages based on language
+    let results = search_language_packages(&language, query, limit)?;
+    
+    if results.is_empty() {
+        println!("No matching packages found for '{}'", query.cyan());
+        return Ok(());
+    }
+    
+    // Display results
+    println!("\n📦 Package results for '{}':", query.cyan().bold());
+    println!("─────────────────────────────────────────────────────");
+    
+    for (i, package) in results.iter().enumerate() {
+        println!("\n{}. {} - {}", 
+            (i + 1).to_string().bold().yellow(), 
+            package.name.bright_blue().bold(), 
+            package.description
+        );
+        println!("   Version: {}", package.version.cyan());
+        
+        if let Some(stars) = &package.stars {
+            println!("   Stars: {}", stars.yellow());
+        }
+        
+        if let Some(url) = &package.url {
+            println!("   URL: {}", url);
+        }
+        
+        println!("   Install: {}", package.install_command.green());
     }
     
     Ok(())
+}
+
+/// Package information structure
+#[derive(Debug, Clone)]
+struct PackageInfo {
+    name: String,
+    description: String,
+    version: String,
+    stars: Option<String>,
+    url: Option<String>,
+    install_command: String,
+}
+
+/// Detect programming language from files in directory
+fn detect_language_from_directory(dir_path: &str) -> Result<(String, Vec<PathBuf>)> {
+    let mut extension_counts: HashMap<String, usize> = HashMap::new();
+    let mut found_files: Vec<PathBuf> = Vec::new();
+    
+    // Files to check for package managers
+    let package_files = [
+        ("package.json", "javascript"),
+        ("Cargo.toml", "rust"),
+        ("requirements.txt", "python"),
+        ("go.mod", "go"),
+        ("pom.xml", "java"),
+        ("build.gradle", "java"),
+        ("composer.json", "php"),
+        ("Gemfile", "ruby"),
+    ];
+    
+    // Check for explicit package manager files first
+    for (file, language) in &package_files {
+        let path = Path::new(dir_path).join(file);
+        if path.exists() {
+            found_files.push(path.clone());
+            return Ok((language.to_string(), found_files));
+        }
+    }
+    
+    // Count file extensions
+    for entry in WalkDir::new(dir_path)
+        .max_depth(3)  // Don't go too deep
+        .into_iter()
+        .filter_map(|e| e.ok())
+        .filter(|e| e.file_type().is_file())
+    {
+        if let Some(extension) = entry.path().extension() {
+            if let Some(ext_str) = extension.to_str() {
+                let ext = ext_str.to_lowercase();
+                *extension_counts.entry(ext).or_insert(0) += 1;
+                found_files.push(entry.path().to_path_buf());
+            }
+        }
+    }
+    
+    // Map common extensions to languages
+    let mut language = "unknown";
+    let mut max_count = 0;
+    
+    for (ext, count) in &extension_counts {
+        if count > &max_count {
+            match ext.as_str() {
+                "js" | "jsx" | "ts" | "tsx" => {
+                    language = "javascript";
+                    max_count = *count;
+                },
+                "py" => {
+                    language = "python";
+                    max_count = *count;
+                },
+                "rs" => {
+                    language = "rust";
+                    max_count = *count;
+                },
+                "go" => {
+                    language = "go";
+                    max_count = *count;
+                },
+                "java" => {
+                    language = "java";
+                    max_count = *count;
+                },
+                "kt" => {
+                    language = "kotlin";
+                    max_count = *count;
+                },
+                "php" => {
+                    language = "php";
+                    max_count = *count;
+                },
+                "rb" => {
+                    language = "ruby";
+                    max_count = *count;
+                },
+                "swift" => {
+                    language = "swift";
+                    max_count = *count;
+                },
+                "cs" => {
+                    language = "csharp";
+                    max_count = *count;
+                },
+                "c" | "h" => {
+                    language = "c";
+                    max_count = *count;
+                },
+                "cpp" | "hpp" => {
+                    language = "cpp";
+                    max_count = *count;
+                },
+                _ => {}
+            }
+        }
+    }
+    
+    Ok((language.to_string(), found_files))
+}
+
+/// Search for packages based on the detected language
+fn search_language_packages(language: &str, query: &str, limit: usize) -> Result<Vec<PackageInfo>> {
+    match language {
+        "javascript" => search_npm_packages(query, limit),
+        "python" => search_python_packages(query, limit),
+        "rust" => search_rust_packages(query, limit),
+        "go" => search_go_packages(query, limit),
+        "java" => search_maven_packages(query, limit),
+        "ruby" => search_ruby_packages(query, limit),
+        "php" => search_php_packages(query, limit),
+        _ => Err(anyhow!("Package search not supported for {}", language)),
+    }
+}
+
+/// Search for npm packages
+fn search_npm_packages(query: &str, limit: usize) -> Result<Vec<PackageInfo>> {
+    let output = match Command::new("npm")
+        .args(["search", query, "--json", "--no-description"])
+        .output() {
+            Ok(output) => output,
+            Err(e) => {
+                eprintln!("Error executing npm search command: {}", e);
+                return fallback_npm_packages(query, limit);
+            }
+        };
+
+    if !output.status.success() {
+        return fallback_npm_packages(query, limit);
+    }
+
+    let output_str = match String::from_utf8(output.stdout) {
+        Ok(s) => s,
+        Err(e) => {
+            eprintln!("Error parsing npm search output: {}", e);
+            return fallback_npm_packages(query, limit);
+        }
+    };
+    
+    let results: Vec<serde_json::Value> = match serde_json::from_str(&output_str) {
+        Ok(v) => v,
+        Err(e) => {
+            eprintln!("Error parsing npm search JSON response: {}", e);
+            return fallback_npm_packages(query, limit);
+        }
+    };
+    
+    let mut packages = Vec::new();
+    for (i, package) in results.iter().enumerate() {
+        if i >= limit {
+            break;
+        }
+        
+        if let (Some(name), Some(description), Some(version)) = (
+            package["name"].as_str(),
+            package["description"].as_str().or(Some("No description available")),
+            package["version"].as_str(),
+        ) {
+            packages.push(PackageInfo {
+                name: name.to_string(),
+                description: description.to_string(),
+                version: version.to_string(),
+                stars: None,
+                url: Some(format!("https://www.npmjs.com/package/{}", name)),
+                install_command: format!("npm install {}", name),
+            });
+        }
+    }
+    
+    if packages.is_empty() {
+        return fallback_npm_packages(query, limit);
+    }
+    
+    Ok(packages)
+}
+
+/// Fallback function to provide static package suggestions for npm/JavaScript
+fn fallback_npm_packages(query: &str, limit: usize) -> Result<Vec<PackageInfo>> {
+    // Define some common npm packages for various categories
+    let state_management = vec![
+        PackageInfo {
+            name: "redux".to_string(), 
+            description: "Predictable state container for JavaScript apps".to_string(),
+            version: "latest".to_string(),
+            stars: Some("Popular".to_string()),
+            url: Some("https://www.npmjs.com/package/redux".to_string()),
+            install_command: "npm install redux".to_string(),
+        },
+        PackageInfo {
+            name: "mobx".to_string(), 
+            description: "Simple, scalable state management".to_string(),
+            version: "latest".to_string(),
+            stars: Some("Popular".to_string()),
+            url: Some("https://www.npmjs.com/package/mobx".to_string()),
+            install_command: "npm install mobx".to_string(),
+        },
+        PackageInfo {
+            name: "zustand".to_string(), 
+            description: "Bear necessities for state management in React".to_string(),
+            version: "latest".to_string(),
+            stars: Some("Popular".to_string()),
+            url: Some("https://www.npmjs.com/package/zustand".to_string()),
+            install_command: "npm install zustand".to_string(),
+        },
+        PackageInfo {
+            name: "recoil".to_string(), 
+            description: "State management library for React".to_string(),
+            version: "latest".to_string(),
+            stars: Some("Popular".to_string()),
+            url: Some("https://www.npmjs.com/package/recoil".to_string()),
+            install_command: "npm install recoil".to_string(),
+        },
+        PackageInfo {
+            name: "jotai".to_string(), 
+            description: "Primitive and flexible state management for React".to_string(),
+            version: "latest".to_string(),
+            stars: Some("Popular".to_string()),
+            url: Some("https://www.npmjs.com/package/jotai".to_string()),
+            install_command: "npm install jotai".to_string(),
+        },
+    ];
+    
+    let web = vec![
+        PackageInfo {
+            name: "express".to_string(), 
+            description: "Fast, unopinionated, minimalist web framework for Node.js".to_string(),
+            version: "latest".to_string(),
+            stars: Some("Popular".to_string()),
+            url: Some("https://www.npmjs.com/package/express".to_string()),
+            install_command: "npm install express".to_string(),
+        },
+        PackageInfo {
+            name: "next".to_string(), 
+            description: "The React Framework for Production".to_string(),
+            version: "latest".to_string(),
+            stars: Some("Popular".to_string()),
+            url: Some("https://www.npmjs.com/package/next".to_string()),
+            install_command: "npm install next".to_string(),
+        },
+        PackageInfo {
+            name: "fastify".to_string(), 
+            description: "Fast and low overhead web framework for Node.js".to_string(),
+            version: "latest".to_string(),
+            stars: Some("Popular".to_string()),
+            url: Some("https://www.npmjs.com/package/fastify".to_string()),
+            install_command: "npm install fastify".to_string(),
+        },
+        PackageInfo {
+            name: "nest".to_string(), 
+            description: "A progressive Node.js framework for building efficient and scalable server-side applications".to_string(),
+            version: "latest".to_string(),
+            stars: Some("Popular".to_string()),
+            url: Some("https://www.npmjs.com/package/@nestjs/core".to_string()),
+            install_command: "npm install @nestjs/core".to_string(),
+        },
+    ];
+    
+    let utils = vec![
+        PackageInfo {
+            name: "lodash".to_string(), 
+            description: "Lodash modular utilities".to_string(),
+            version: "latest".to_string(),
+            stars: Some("Popular".to_string()),
+            url: Some("https://www.npmjs.com/package/lodash".to_string()),
+            install_command: "npm install lodash".to_string(),
+        },
+        PackageInfo {
+            name: "axios".to_string(), 
+            description: "Promise based HTTP client for the browser and node.js".to_string(),
+            version: "latest".to_string(),
+            stars: Some("Popular".to_string()),
+            url: Some("https://www.npmjs.com/package/axios".to_string()),
+            install_command: "npm install axios".to_string(),
+        },
+        PackageInfo {
+            name: "date-fns".to_string(), 
+            description: "Modern JavaScript date utility library".to_string(),
+            version: "latest".to_string(),
+            stars: Some("Popular".to_string()),
+            url: Some("https://www.npmjs.com/package/date-fns".to_string()),
+            install_command: "npm install date-fns".to_string(),
+        },
+        PackageInfo {
+            name: "zod".to_string(), 
+            description: "TypeScript-first schema validation with static type inference".to_string(),
+            version: "latest".to_string(),
+            stars: Some("Popular".to_string()),
+            url: Some("https://www.npmjs.com/package/zod".to_string()),
+            install_command: "npm install zod".to_string(),
+        },
+    ];
+    
+    // Check the query to determine which category to return
+    let query_lower = query.to_lowercase();
+    let selected_packages = if query_lower.contains("state") || query_lower.contains("manage") {
+        state_management
+    } else if query_lower.contains("web") || query_lower.contains("server") || query_lower.contains("http") {
+        web
+    } else {
+        utils
+    };
+    
+    // Return the appropriate number of packages
+    Ok(selected_packages.into_iter().take(limit).collect())
+}
+
+/// Search for Python packages
+fn search_python_packages(query: &str, limit: usize) -> Result<Vec<PackageInfo>> {
+    // Use pip search or PyPI API
+    // Note: pip search is deprecated, so we'll execute a curl command to query PyPI JSON API
+    let output = match Command::new("curl")
+        .args(["-s", &format!("https://pypi.org/search/?q={}&format=json", query)])
+        .output() {
+            Ok(output) => output,
+            Err(e) => {
+                eprintln!("Error executing PyPI search command: {}", e);
+                return fallback_python_packages(query, limit);
+            }
+        };
+
+    if !output.status.success() {
+        return fallback_python_packages(query, limit);
+    }
+
+    let output_str = match String::from_utf8(output.stdout) {
+        Ok(s) => s,
+        Err(e) => {
+            eprintln!("Error parsing PyPI search output: {}", e);
+            return fallback_python_packages(query, limit);
+        }
+    };
+    
+    let results: serde_json::Value = match serde_json::from_str(&output_str) {
+        Ok(v) => v,
+        Err(e) => {
+            eprintln!("Error parsing PyPI search JSON response: {}", e);
+            return fallback_python_packages(query, limit);
+        }
+    };
+    
+    let mut packages = Vec::new();
+    
+    if let Some(results_array) = results["results"].as_array() {
+        for (i, package) in results_array.iter().enumerate() {
+            if i >= limit {
+                break;
+            }
+            
+            if let (Some(name), Some(version), Some(description)) = (
+                package["name"].as_str(),
+                package["version"].as_str(),
+                package["description"].as_str().or(Some("No description available")),
+            ) {
+                packages.push(PackageInfo {
+                    name: name.to_string(),
+                    description: description.to_string(),
+                    version: version.to_string(),
+                    stars: None,
+                    url: Some(format!("https://pypi.org/project/{}", name)),
+                    install_command: format!("pip install {}", name),
+                });
+            }
+        }
+    }
+    
+    if packages.is_empty() {
+        return fallback_python_packages(query, limit);
+    }
+    
+    Ok(packages)
+}
+
+/// Fallback function to provide static package suggestions for Python
+fn fallback_python_packages(query: &str, limit: usize) -> Result<Vec<PackageInfo>> {
+    // Define some common Python packages for various categories
+    let state_management = vec![
+        PackageInfo {
+            name: "pydantic".to_string(), 
+            description: "Data validation and settings management using Python type hints".to_string(),
+            version: "latest".to_string(),
+            stars: Some("Popular".to_string()),
+            url: Some("https://pypi.org/project/pydantic".to_string()),
+            install_command: "pip install pydantic".to_string(),
+        },
+        PackageInfo {
+            name: "attrs".to_string(), 
+            description: "Classes Without Boilerplate".to_string(),
+            version: "latest".to_string(),
+            stars: Some("Popular".to_string()),
+            url: Some("https://pypi.org/project/attrs".to_string()),
+            install_command: "pip install attrs".to_string(),
+        },
+        PackageInfo {
+            name: "dataclasses".to_string(), 
+            description: "A backport of the dataclasses module for Python 3.6".to_string(),
+            version: "latest".to_string(),
+            stars: Some("Popular".to_string()),
+            url: Some("https://pypi.org/project/dataclasses".to_string()),
+            install_command: "pip install dataclasses".to_string(),
+        },
+        PackageInfo {
+            name: "redis".to_string(), 
+            description: "Python client for Redis key-value store".to_string(),
+            version: "latest".to_string(),
+            stars: Some("Popular".to_string()),
+            url: Some("https://pypi.org/project/redis".to_string()),
+            install_command: "pip install redis".to_string(),
+        },
+        PackageInfo {
+            name: "sqlalchemy".to_string(), 
+            description: "Database Abstraction Library".to_string(),
+            version: "latest".to_string(),
+            stars: Some("Popular".to_string()),
+            url: Some("https://pypi.org/project/sqlalchemy".to_string()),
+            install_command: "pip install sqlalchemy".to_string(),
+        },
+    ];
+    
+    let web = vec![
+        PackageInfo {
+            name: "flask".to_string(), 
+            description: "A simple framework for building complex web applications".to_string(),
+            version: "latest".to_string(),
+            stars: Some("Popular".to_string()),
+            url: Some("https://pypi.org/project/flask".to_string()),
+            install_command: "pip install flask".to_string(),
+        },
+        PackageInfo {
+            name: "django".to_string(), 
+            description: "A high-level Python Web framework that encourages rapid development".to_string(),
+            version: "latest".to_string(),
+            stars: Some("Popular".to_string()),
+            url: Some("https://pypi.org/project/django".to_string()),
+            install_command: "pip install django".to_string(),
+        },
+        PackageInfo {
+            name: "fastapi".to_string(), 
+            description: "FastAPI framework, high performance, easy to learn, fast to code, ready for production".to_string(),
+            version: "latest".to_string(),
+            stars: Some("Popular".to_string()),
+            url: Some("https://pypi.org/project/fastapi".to_string()),
+            install_command: "pip install fastapi".to_string(),
+        },
+        PackageInfo {
+            name: "starlette".to_string(), 
+            description: "The little ASGI framework that shines".to_string(),
+            version: "latest".to_string(),
+            stars: Some("Popular".to_string()),
+            url: Some("https://pypi.org/project/starlette".to_string()),
+            install_command: "pip install starlette".to_string(),
+        },
+    ];
+    
+    let utils = vec![
+        PackageInfo {
+            name: "requests".to_string(), 
+            description: "Python HTTP for Humans".to_string(),
+            version: "latest".to_string(),
+            stars: Some("Popular".to_string()),
+            url: Some("https://pypi.org/project/requests".to_string()),
+            install_command: "pip install requests".to_string(),
+        },
+        PackageInfo {
+            name: "pandas".to_string(), 
+            description: "Powerful data structures for data analysis, time series, and statistics".to_string(),
+            version: "latest".to_string(),
+            stars: Some("Popular".to_string()),
+            url: Some("https://pypi.org/project/pandas".to_string()),
+            install_command: "pip install pandas".to_string(),
+        },
+        PackageInfo {
+            name: "numpy".to_string(), 
+            description: "Fundamental package for array computing in Python".to_string(),
+            version: "latest".to_string(),
+            stars: Some("Popular".to_string()),
+            url: Some("https://pypi.org/project/numpy".to_string()),
+            install_command: "pip install numpy".to_string(),
+        },
+        PackageInfo {
+            name: "pytest".to_string(), 
+            description: "Simple powerful testing with Python".to_string(),
+            version: "latest".to_string(),
+            stars: Some("Popular".to_string()),
+            url: Some("https://pypi.org/project/pytest".to_string()),
+            install_command: "pip install pytest".to_string(),
+        },
+    ];
+    
+    // Check the query to determine which category to return
+    let query_lower = query.to_lowercase();
+    let selected_packages = if query_lower.contains("state") || query_lower.contains("manage") {
+        state_management
+    } else if query_lower.contains("web") || query_lower.contains("server") || query_lower.contains("http") {
+        web
+    } else {
+        utils
+    };
+    
+    // Return the appropriate number of packages
+    Ok(selected_packages.into_iter().take(limit).collect())
+}
+
+/// Search for Rust packages (crates)
+fn search_rust_packages(query: &str, limit: usize) -> Result<Vec<PackageInfo>> {
+    // Use a curl command to get data from crates.io API
+    let output = match Command::new("curl")
+        .args(["-s", &format!("https://crates.io/api/v1/crates?q={}&per_page={}", query, limit)])
+        .output() {
+            Ok(output) => output,
+            Err(e) => {
+                eprintln!("Error executing curl command: {}", e);
+                // Fallback to a simpler approach - just provide some common packages related to the search term
+                return fallback_rust_packages(query, limit);
+            }
+        };
+
+    if !output.status.success() {
+        return fallback_rust_packages(query, limit);
+    }
+
+    let output_str = match String::from_utf8(output.stdout) {
+        Ok(s) => s,
+        Err(e) => {
+            eprintln!("Error parsing curl output: {}", e);
+            return fallback_rust_packages(query, limit);
+        }
+    };
+    
+    let results: serde_json::Value = match serde_json::from_str(&output_str) {
+        Ok(v) => v,
+        Err(e) => {
+            eprintln!("Error parsing JSON response: {}", e);
+            return fallback_rust_packages(query, limit);
+        }
+    };
+    
+    let mut packages = Vec::new();
+    
+    if let Some(crates) = results["crates"].as_array() {
+        for package in crates.iter().take(limit) {
+            if let (Some(name), Some(description), Some(version)) = (
+                package["name"].as_str(),
+                package["description"].as_str().or(Some("No description available")),
+                package["max_version"].as_str(),
+            ) {
+                let downloads = package["downloads"].as_u64().map(|d| format!("{} downloads", d));
+                
+                packages.push(PackageInfo {
+                    name: name.to_string(),
+                    description: description.to_string(),
+                    version: version.to_string(),
+                    stars: downloads,
+                    url: Some(format!("https://crates.io/crates/{}", name)),
+                    install_command: format!("cargo add {}", name),
+                });
+            }
+        }
+    }
+    
+    if packages.is_empty() {
+        return fallback_rust_packages(query, limit);
+    }
+    
+    Ok(packages)
+}
+
+/// Fallback function to provide static package suggestions for Rust
+fn fallback_rust_packages(query: &str, limit: usize) -> Result<Vec<PackageInfo>> {
+    // Define some common Rust packages for various categories
+    let state_management = vec![
+        PackageInfo {
+            name: "dashmap".to_string(), 
+            description: "Blazing fast concurrent HashMap for Rust".to_string(),
+            version: "latest".to_string(),
+            stars: Some("Popular".to_string()),
+            url: Some("https://crates.io/crates/dashmap".to_string()),
+            install_command: "cargo add dashmap".to_string(),
+        },
+        PackageInfo {
+            name: "im".to_string(), 
+            description: "Immutable data structures for Rust".to_string(),
+            version: "latest".to_string(),
+            stars: Some("Popular".to_string()),
+            url: Some("https://crates.io/crates/im".to_string()),
+            install_command: "cargo add im".to_string(),
+        },
+        PackageInfo {
+            name: "arc-swap".to_string(), 
+            description: "Atomic swap for Arc, useful for safely sharing state".to_string(),
+            version: "latest".to_string(),
+            stars: Some("Popular".to_string()),
+            url: Some("https://crates.io/crates/arc-swap".to_string()),
+            install_command: "cargo add arc-swap".to_string(),
+        },
+        PackageInfo {
+            name: "once_cell".to_string(), 
+            description: "Single assignment cells and lazy values for Rust".to_string(),
+            version: "latest".to_string(),
+            stars: Some("Popular".to_string()),
+            url: Some("https://crates.io/crates/once_cell".to_string()),
+            install_command: "cargo add once_cell".to_string(),
+        },
+        PackageInfo {
+            name: "crossbeam".to_string(), 
+            description: "Tools for concurrent programming in Rust".to_string(),
+            version: "latest".to_string(),
+            stars: Some("Popular".to_string()),
+            url: Some("https://crates.io/crates/crossbeam".to_string()),
+            install_command: "cargo add crossbeam".to_string(),
+        },
+    ];
+    
+    let web = vec![
+        PackageInfo {
+            name: "actix-web".to_string(), 
+            description: "Fast, pragmatic and flexible web framework for Rust".to_string(),
+            version: "latest".to_string(),
+            stars: Some("Popular".to_string()),
+            url: Some("https://crates.io/crates/actix-web".to_string()),
+            install_command: "cargo add actix-web".to_string(),
+        },
+        PackageInfo {
+            name: "rocket".to_string(), 
+            description: "Web framework with a focus on usability, security, and performance".to_string(),
+            version: "latest".to_string(),
+            stars: Some("Popular".to_string()),
+            url: Some("https://crates.io/crates/rocket".to_string()),
+            install_command: "cargo add rocket".to_string(),
+        },
+        PackageInfo {
+            name: "axum".to_string(), 
+            description: "Ergonomic and modular web framework built with Tokio, Tower, and Hyper".to_string(),
+            version: "latest".to_string(),
+            stars: Some("Popular".to_string()),
+            url: Some("https://crates.io/crates/axum".to_string()),
+            install_command: "cargo add axum".to_string(),
+        },
+    ];
+    
+    let utils = vec![
+        PackageInfo {
+            name: "serde".to_string(), 
+            description: "Serialization framework for Rust".to_string(),
+            version: "latest".to_string(),
+            stars: Some("Popular".to_string()),
+            url: Some("https://crates.io/crates/serde".to_string()),
+            install_command: "cargo add serde".to_string(),
+        },
+        PackageInfo {
+            name: "tokio".to_string(), 
+            description: "An event-driven, non-blocking I/O platform for writing asynchronous applications".to_string(),
+            version: "latest".to_string(),
+            stars: Some("Popular".to_string()),
+            url: Some("https://crates.io/crates/tokio".to_string()),
+            install_command: "cargo add tokio".to_string(),
+        },
+        PackageInfo {
+            name: "anyhow".to_string(), 
+            description: "Flexible concrete Error type built on std::error::Error".to_string(),
+            version: "latest".to_string(),
+            stars: Some("Popular".to_string()),
+            url: Some("https://crates.io/crates/anyhow".to_string()),
+            install_command: "cargo add anyhow".to_string(),
+        },
+    ];
+    
+    // Check the query to determine which category to return
+    let query_lower = query.to_lowercase();
+    let selected_packages = if query_lower.contains("state") || query_lower.contains("manage") {
+        state_management
+    } else if query_lower.contains("web") || query_lower.contains("server") || query_lower.contains("http") {
+        web
+    } else {
+        utils
+    };
+    
+    // Return the appropriate number of packages
+    Ok(selected_packages.into_iter().take(limit).collect())
+}
+
+/// Search for Go packages
+fn search_go_packages(query: &str, limit: usize) -> Result<Vec<PackageInfo>> {
+    // Use a curl command to get data from pkg.go.dev via a search engine proxy
+    let output = Command::new("curl")
+        .args(["-s", &format!("https://pkg.go.dev/search?q={}&limit={}", query, limit)])
+        .output()?;
+
+    if !output.status.success() {
+        return Err(anyhow!("Failed to search Go packages"));
+    }
+
+    let output_str = String::from_utf8(output.stdout)?;
+    
+    // Parse the HTML response
+    let mut packages = Vec::new();
+    
+    // Simple regex-based parsing (in a real implementation, use an HTML parser)
+    let package_regex = Regex::new(r#"<a class="go-Package-title" href="([^"]+)">([^<]+)</a>.*?<p class="go-Package-synopsis">([^<]+)</p>"#).unwrap();
+    
+    for cap in package_regex.captures_iter(&output_str).take(limit) {
+        let path = cap.get(1).map_or("", |m| m.as_str());
+        let name = cap.get(2).map_or("", |m| m.as_str());
+        let description = cap.get(3).map_or("", |m| m.as_str());
+        
+        let full_path = if path.starts_with("/") {
+            format!("github.com{}", path)
+        } else {
+            path.to_string()
+        };
+        
+        packages.push(PackageInfo {
+            name: name.to_string(),
+            description: description.to_string(),
+            version: "latest".to_string(),
+            stars: None,
+            url: Some(format!("https://pkg.go.dev{}", path)),
+            install_command: format!("go get {}", full_path),
+        });
+    }
+    
+    Ok(packages)
+}
+
+/// Search for Maven packages (Java)
+fn search_maven_packages(query: &str, limit: usize) -> Result<Vec<PackageInfo>> {
+    // Use Maven Central's search API
+    let output = Command::new("curl")
+        .args(["-s", &format!("https://search.maven.org/solrsearch/select?q={}&rows={}&wt=json", query, limit)])
+        .output()?;
+
+    if !output.status.success() {
+        return Err(anyhow!("Failed to search Maven packages"));
+    }
+
+    let output_str = String::from_utf8(output.stdout)?;
+    let results: serde_json::Value = serde_json::from_str(&output_str)?;
+    
+    let mut packages = Vec::new();
+    
+    if let Some(docs) = results["response"]["docs"].as_array() {
+        for package in docs.iter() {
+            if let (Some(group_id), Some(artifact_id), Some(version)) = (
+                package["g"].as_str(),
+                package["a"].as_str(),
+                package["latestVersion"].as_str(),
+            ) {
+                let name = format!("{}:{}", group_id, artifact_id);
+                packages.push(PackageInfo {
+                    name,
+                    description: package["text"].as_array()
+                        .and_then(|a| a.get(0))
+                        .and_then(|t| t.as_str())
+                        .unwrap_or("No description")
+                        .to_string(),
+                    version: version.to_string(),
+                    stars: None,
+                    url: Some(format!("https://search.maven.org/artifact/{}/{}/{}", 
+                        group_id, artifact_id, version)),
+                    install_command: format!(
+                        "<!-- Maven -->\n<dependency>\n  <groupId>{}</groupId>\n  <artifactId>{}</artifactId>\n  <version>{}</version>\n</dependency>\n\n<!-- Gradle -->\nimplementation '{}:{}:{}'", 
+                        group_id, artifact_id, version, group_id, artifact_id, version
+                    ),
+                });
+            }
+        }
+    }
+    
+    Ok(packages)
+}
+
+/// Search for Ruby packages (gems)
+fn search_ruby_packages(query: &str, limit: usize) -> Result<Vec<PackageInfo>> {
+    let output = Command::new("gem")
+        .args(["search", query, "--remote", "--limit", &limit.to_string()])
+        .output()?;
+
+    if !output.status.success() {
+        return Err(anyhow!("Failed to search Ruby gems"));
+    }
+
+    let output_str = String::from_utf8(output.stdout)?;
+    let lines: Vec<&str> = output_str.lines().collect();
+    
+    let mut packages = Vec::new();
+    let re = Regex::new(r"^([\w-]+) \(([^)]+)\)$").unwrap();
+    
+    for line in lines {
+        if let Some(caps) = re.captures(line) {
+            let name = caps.get(1).map_or("", |m| m.as_str());
+            let version = caps.get(2).map_or("", |m| m.as_str());
+            
+            let description = if let Ok(desc_output) = Command::new("gem")
+                .args(["info", "--remote", name])
+                .output() 
+            {
+                let desc_str = String::from_utf8_lossy(&desc_output.stdout);
+                let desc_re = Regex::new(r"(?m)^    (.+)$").unwrap();
+                desc_re.captures(&desc_str)
+                    .and_then(|cap| cap.get(1))
+                    .map_or("No description", |m| m.as_str())
+                    .to_string()
+            } else {
+                "No description".to_string()
+            };
+
+            packages.push(PackageInfo {
+                name: name.to_string(),
+                description,
+                version: version.to_string(),
+                stars: None,
+                url: Some(format!("https://rubygems.org/gems/{}", name)),
+                install_command: format!("gem install {}", name),
+            });
+        }
+        
+        if packages.len() >= limit {
+            break;
+        }
+    }
+    
+    Ok(packages)
+}
+
+/// Search for PHP packages (composer)
+fn search_php_packages(query: &str, limit: usize) -> Result<Vec<PackageInfo>> {
+    let output = Command::new("composer")
+        .args(["search", "--format=json", query])
+        .output()?;
+
+    if !output.status.success() {
+        return Err(anyhow!("Failed to search PHP packages"));
+    }
+
+    let output_str = String::from_utf8(output.stdout)?;
+    let results: serde_json::Value = serde_json::from_str(&output_str)?;
+    
+    let mut packages = Vec::new();
+    
+    if let Some(packages_obj) = results["packages"].as_object() {
+        for (i, (name, package)) in packages_obj.iter().enumerate() {
+            if i >= limit {
+                break;
+            }
+            
+            if let (Some(description), Some(version)) = (
+                package["description"].as_str(),
+                package["versions"].as_array().and_then(|v| v.first()).and_then(|v| v.as_str()),
+            ) {
+                packages.push(PackageInfo {
+                    name: name.to_string(),
+                    description: description.to_string(),
+                    version: version.to_string(),
+                    stars: None,
+                    url: Some(format!("https://packagist.org/packages/{}", name)),
+                    install_command: format!("composer require {}", name),
+                });
+            }
+        }
+    }
+    
+    Ok(packages)
 }
 
 /// Insert an entry into a file
@@ -664,6 +1620,7 @@ fn execute_command_chain(chain: &str) -> Result<()> {
                     cmd.args.join(" "),
                     5,  // default limit
                     None,
+                    false,
                     false,
                 )?;
             }

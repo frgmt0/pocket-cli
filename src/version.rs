@@ -4,16 +4,16 @@
 /// and our letter-based versioning system that prioritizes communication
 
 /// The current version in letter-based format
-pub const VERSION_LETTER: &str = "v-pocket-R3B1-ncR2<";
+pub const VERSION_LETTER: &str = "v-pocket-R3C-ncR2<";
 
 /// The current version as a date string (MMDDYYYY) - for internal tracking
-pub const VERSION_DATE: &str = "03252025";
+pub const VERSION_DATE: &str = "03282025";
 
 /// The current version as a human-readable string
-pub const VERSION_STRING: &str = "Pocket v-pocket-R3B1-ncR2< (03252025 - Card System)";
+pub const VERSION_STRING: &str = "Pocket v-pocket-R3C-ncR2< (03282025 - Enhanced Search System)";
 
 /// Compatibility information
-pub const COMPATIBILITY: Option<&str> = Some("Compatibility only extends to basic functions of Pocket and does not include any VCS support or Card support");
+pub const COMPATIBILITY: Option<&str> = Some("Compatibility only extends to basic functions of Pocket and does not include any VCS support or Card support. The package search feature is only available on R3C or higher.");
 
 pub const AUTHOR: &str = "frgmt0 (j)";
 
@@ -23,7 +23,7 @@ pub fn get_version() -> Version {
         letter: VERSION_LETTER,
         date: VERSION_DATE,
         semver: env!("CARGO_PKG_VERSION"),
-        name: "Card System",
+        name: "Enhanced Search System",
         compatibility: COMPATIBILITY,
         stability: Stability::Beta,
         author: AUTHOR,

@@ -2,6 +2,29 @@
 
 All notable changes to Pocket will be documented in this file using our letter-based versioning system.
 
+## v-pocket-R3C-ncR2< (03282025 - Enhanced Search System)
+
+### Added
+- Implemented intelligent package searching with `-p` or `--package` flag
+- Added language detection based on project files and extensions
+- Support for searching packages across multiple package managers:
+  - npm for JavaScript/Node.js
+  - pip/PyPI for Python
+  - cargo/crates.io for Rust
+  - Basic support for Go, Maven, Ruby, and PHP
+- Fallback mechanisms with curated package lists when API calls fail
+- Smart categorization of packages based on search terms (state management, web, utilities)
+
+### Changed
+- Increased default search results limit for better user experience
+- Improved error handling for network operations during package searches
+
+### Notes
+- The package search feature is only available on R3C or higher
+- Compatibility only extends to basic functions of Pocket and does not include any VCS support or Card support
+- For VCS support, you will need a minimum of R3A1 (not recommended because it's alpha version) or R3A2 (also not recommended but better than A1)
+- For card support, you will need R3B1 minimum and will be fully supported at a full R3 release
+
 ## v-pocket-R3B1-ncR2< (03252025 - Card System)
 
 ### Added

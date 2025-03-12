@@ -84,23 +84,27 @@ enum Commands {
         entity: CreateCommands,
     },
 
-    /// Find entries using semantic similarity
+    /// Find entries across all backpacks with powerful search algorithms
     Search {
         /// Search query
         #[arg(value_name = "QUERY")]
         query: String,
 
         /// Limit the number of results
-        #[arg(long, value_name = "N", default_value = "5")]
+        #[arg(long, value_name = "N", default_value = "10")]
         limit: usize,
 
-        /// Search only within a specific backpack
+        /// Search only within a specific backpack (defaults to searching all backpacks)
         #[arg(long, value_name = "NAME")]
         backpack: Option<String>,
 
         /// Use exact text matching instead of semantic search
         #[arg(long)]
         exact: bool,
+        
+        /// Search for packages that match the description (finds appropriate packages for your code)
+        #[arg(short = 'p', long)]
+        package: bool,
     },
 
     /// Insert an entry into a file
@@ -483,8 +487,8 @@ fn main() -> Result<()> {
                 }
             }
         }
-        Commands::Search { query, limit, backpack, exact } => {
-            commands::search_command(query, limit, backpack, exact)?;
+        Commands::Search { query, limit, backpack, exact, package } => {
+            commands::search_command(query, limit, backpack, exact, package)?;
         }
         Commands::Insert { id, file, top, no_confirm, delimiter } => {
             commands::insert_command(id, file, top, no_confirm, delimiter)?;
