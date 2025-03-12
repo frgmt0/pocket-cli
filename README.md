@@ -1,7 +1,7 @@
 # <img src="assets/images/doggie.gif" width="40" alt="Pocket Dog"> Pocket
 *Where your code snippets go to thrive, not disappear into the digital void*
 
-[![Build Status](https://img.shields.io/github/actions/workflow/status/frgmt0/pocket/test.yml?branch=main)](https://github.com/frgmt0/pocket/actions)
+[![Build Status](https://img.shields.io/github/actions/workflow/status/frgmt0/pocket/release.yml?branch=main)](https://github.com/frgmt0/pocket/actions)
 [![Crates.io](https://img.shields.io/crates/v/pocket-cli)](https://crates.io/crates/pocket-cli)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](https://github.com/frgmt0/pocket/pulls)
@@ -55,6 +55,10 @@ If you encounter any issues or have questions, please [create an issue](https://
 Current version: `v-pocket-R3B1-nCR2`
 
 I use a versioning system with letter-based releases, because apparently semver was too mainstream. For more information, see my [versioning philosophy](https://blog.frgmt.xyz/03102025-tech).
+
+![GitHub stars](https://img.shields.io/github/stars/frgmt0/pocket?style=social)
+![Crates.io Downloads](https://img.shields.io/crates/d/pocket-cli)
+![GitHub issues](https://img.shields.io/github/issues/frgmt0/pocket)
 
 ## License
 
