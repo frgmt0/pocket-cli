@@ -5,7 +5,6 @@
 
 use pocket_cli::models::Snippet;
 use pocket_cli::storage::SnippetStorage;
-use std::path::Path;
 use tempfile::TempDir;
 use anyhow::Result;
 use uuid::Uuid;

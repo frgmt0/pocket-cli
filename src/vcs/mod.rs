@@ -20,7 +20,7 @@ pub use pile::{Pile, PileEntry, PileStatus};
 pub use shove::{Shove, ShoveId, Author};
 pub use timeline::Timeline;
 pub use objects::{ObjectStore, ObjectId, Tree, TreeEntry};
-pub use merge::{MergeResult, MergeStrategy};
+pub use merge::MergeStrategy;
 
 // Common types used throughout the VCS module
 use std::path::PathBuf;

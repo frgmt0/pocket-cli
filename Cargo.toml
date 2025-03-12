@@ -6,10 +6,15 @@ description = "A CLI tool for saving, organizing, and retrieving code snippets w
 authors = ["frgmt0"]
 license = "MIT"
 
+# Define the library target to expose modules to tests
+[lib]
+name = "pocket_cli"
+path = "src/lib.rs"
+
 # Define the binary name as 'pocket' instead of the default 'pocket-cli'
 [[bin]]
 name = "pocket"
-path = "src/main.rs"
+path = "src/bin/pocket.rs"
 
 [dependencies]
 clap = { version = "4.4.6", features = ["derive"] }

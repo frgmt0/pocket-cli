@@ -1,25 +1,26 @@
-use std::path::PathBuf;
+use std::path::{PathBuf, Path};
 use std::process;
 use clap::{Parser, Subcommand};
 use colored::Colorize;
 use anyhow::{Result, anyhow};
 use std::fs;
-use crate::vcs::Repository;
+use pocket_cli::vcs::Repository;
 
-use crate::vcs::commands::{
-    status_command, 
+use pocket_cli::vcs::commands::{
+    status_command,
+    pile_command,
+    unpile_command,
+    shove_command,
+    log_command,
+    timeline_new_command,
+    timeline_switch_command,
+    timeline_list_command,
     merge_command,
-    new_repo_command,
     remote_add_command,
     remote_remove_command,
     remote_list_command,
     push_command,
     ignore_command,
-    interactive_pile_command, 
-    interactive_shove_command, 
-    interactive_timeline_command,
-    log_command,
-    ignore_command
 };
 
 #[derive(Parser)]
@@ -210,19 +211,26 @@ fn main() -> Result<()> {
             }
         },
         Commands::Pile { files, all, pattern, path } => {
-            if let Err(e) = interactive_pile_command(path, files.clone(), *all, pattern.clone()) {
+            // Convert Vec<String> to Vec<&Path>
+            let file_paths: Vec<&Path> = files.iter().map(|s| Path::new(s)).collect();
+            
+            if let Err(e) = pile_command(path, file_paths, *all, pattern.as_deref()) {
                 eprintln!("{} {}", "❌".red(), format!("Error: {}", e).red());
                 process::exit(1);
             }
         },
         Commands::Shove { path } => {
-            if let Err(e) = interactive_shove_command(path) {
+            // Add the missing message and editor parameters
+            if let Err(e) = shove_command(path, None, true) {
                 eprintln!("{} {}", "❌".red(), format!("Error: {}", e).red());
                 process::exit(1);
             }
         },
         Commands::Timeline { path } => {
-            if let Err(e) = interactive_timeline_command(path) {
+            // Since timeline_new_command requires a name and based_on parameters,
+            // we should use a different command or provide the required parameters
+            // Let's use timeline_list_command instead which is more appropriate for this case
+            if let Err(e) = timeline_list_command(path) {
                 eprintln!("{} {}", "❌".red(), format!("Error: {}", e).red());
                 process::exit(1);
             }

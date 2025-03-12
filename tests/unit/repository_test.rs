@@ -4,7 +4,6 @@
 //! in isolation from other components.
 
 use pocket_cli::vcs::Repository;
-use std::path::Path;
 use std::fs;
 use tempfile::TempDir;
 use anyhow::Result;
@@ -28,7 +27,7 @@ fn test_create_new_repository() -> Result<()> {
     let repo_path = temp_dir.path();
     
     // Initialize a new repository
-    Repository::init(repo_path)?;
+    Repository::new(repo_path)?;
     
     // Verify .pocket directory exists
     let pocket_dir = repo_path.join(".pocket");
@@ -57,7 +56,7 @@ fn test_repository_status() -> Result<()> {
     let repo_path = temp_dir.path();
     
     // Initialize a new repository
-    Repository::init(repo_path)?;
+    Repository::new(repo_path)?;
     
     // Create a new file
     let test_file = repo_path.join("test.txt");
@@ -70,7 +69,7 @@ fn test_repository_status() -> Result<()> {
     let status = repo.status()?;
     
     // Verify the file is untracked
-    assert!(status.untracked.iter().any(|p| p.ends_with("test.txt")), 
+    assert!(status.untracked_files.iter().any(|p| p.ends_with("test.txt")), 
             "Repository status did not detect untracked file");
     
     Ok(())
@@ -88,7 +87,7 @@ fn test_pile_files() -> Result<()> {
     let repo_path = temp_dir.path();
     
     // Initialize a new repository
-    Repository::init(repo_path)?;
+    Repository::new(repo_path)?;
     
     // Create a new file
     let test_file = repo_path.join("test.txt");
@@ -98,13 +97,13 @@ fn test_pile_files() -> Result<()> {
     let mut repo = Repository::open(repo_path)?;
     
     // Add file to pile
-    repo.add_file(&test_file)?;
+    repo.pile(&[test_file.to_str().unwrap()])?;
     
     // Check status
     let status = repo.status()?;
     
     // Verify the file is in the pile
-    assert!(status.staged.iter().any(|p| p.ends_with("test.txt")), 
+    assert!(status.piled_files.iter().any(|p| p.ends_with("test.txt")), 
             "Repository status did not detect piled file");
     
     Ok(())
