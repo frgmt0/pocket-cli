@@ -259,9 +259,6 @@ enum Commands {
         timeline: Option<String>,
     },
 
-    /// Show timeline graph
-    Graph,
-
     /// Manage timelines (branches)
     Timeline {
         #[command(subcommand)]
@@ -485,10 +482,6 @@ fn main() -> Result<()> {
         Commands::Log { verbose, timeline } => {
             let path = std::path::Path::new(".");
             vcs::commands::log_command(path, verbose, timeline.as_deref())?;
-        }
-        Commands::Graph => {
-            let path = std::path::Path::new(".");
-            vcs::commands::graph_command(path)?;
         }
         Commands::Timeline { action } => {
             let path = std::path::Path::new(".");

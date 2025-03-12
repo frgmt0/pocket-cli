@@ -19,7 +19,6 @@ use crate::vcs::commands::{
     interactive_shove_command, 
     interactive_timeline_command,
     log_command,
-    graph_command,
     ignore_command
 };
 
@@ -156,13 +155,6 @@ enum Commands {
         path: PathBuf,
     },
     
-    /// 📊 Show timeline graph
-    Graph {
-        /// Repository path
-        #[arg(short, long, default_value = ".")]
-        path: PathBuf,
-    },
-    
     /// 🚫 Manage ignore patterns
     Ignore {
         /// Add a new ignore pattern
@@ -283,12 +275,6 @@ fn main() -> Result<()> {
         },
         Commands::Log { verbose, timeline, path } => {
             if let Err(e) = log_command(path, *verbose, timeline.as_deref()) {
-                eprintln!("{} {}", "❌".red(), format!("Error: {}", e).red());
-                process::exit(1);
-            }
-        },
-        Commands::Graph { path } => {
-            if let Err(e) = graph_command(path) {
                 eprintln!("{} {}", "❌".red(), format!("Error: {}", e).red());
                 process::exit(1);
             }

@@ -3,7 +3,7 @@
 //! These tests verify that the core snippet operations work correctly
 //! in isolation from other components.
 
-use pocket_cli::models::Snippet;
+use crate::models::Snippet;
 use pocket_cli::storage::Storage;
 use std::path::Path;
 use tempfile::TempDir;

@@ -373,7 +373,6 @@ pub fn interactive_timeline_command(path: &Path) -> Result<()> {
     let options = vec![
         "🆕 Create new timeline",
         "🔄 Switch timeline",
-        "📊 Show timeline graph",
         "🔙 Back to main menu",
     ];
     
@@ -445,24 +444,6 @@ pub fn interactive_timeline_command(path: &Path) -> Result<()> {
             std::thread::sleep(std::time::Duration::from_millis(500));
             
             println!("{} Switched to timeline {}", "✅".green(), selected_timeline.bright_green());
-        },
-        2 => {
-            // Show timeline graph
-            println!("\n{} {}", "📊".blue(), "Timeline Graph".bold());
-            
-            // Generate the graph using our new implementation
-            let graph_lines = crate::vcs::generate_graph(path)?;
-            
-            // Check if the graph is empty before iterating
-            if graph_lines.is_empty() {
-                println!("  No commits found in this repository.");
-                println!("  Create your first commit with {}", "pocket shove".bright_cyan());
-            } else {
-                // Print the graph
-                for line in &graph_lines {
-                    println!("{}", line);
-                }
-            }
         },
         _ => {
             // Back to main menu
@@ -932,27 +913,6 @@ enum ChangeType {
     Modified,
     Deleted,
     Renamed,
-}
-
-/// Display a visual graph of the timeline history
-pub fn graph_command(path: &Path) -> Result<()> {
-    println!("\n{} {} {}\n", "📊".bright_cyan(), "Pocket VCS Timeline Graph".bold().bright_cyan(), "📊".bright_cyan());
-    
-    // Generate the graph using our new implementation
-    let graph_lines = crate::vcs::generate_graph(path)?;
-    
-    // Check if the graph is empty before iterating
-    if graph_lines.is_empty() {
-        println!("  No commits found in this repository.");
-        println!("  Create your first commit with {}", "pocket shove".bright_cyan());
-    } else {
-        // Print the graph
-        for line in &graph_lines {
-            println!("{}", line);
-        }
-    }
-    
-    Ok(())
 }
 
 /// Create a new timeline (branch)

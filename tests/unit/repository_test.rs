@@ -3,7 +3,7 @@
 //! These tests verify that the core repository operations work correctly
 //! in isolation from other components.
 
-use pocket_cli::vcs::Repository;
+use crate vcs::Repository;
 use std::path::Path;
 use std::fs;
 use tempfile::TempDir;

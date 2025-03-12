@@ -9,7 +9,7 @@ license = "MIT"
 # Define the binary name as 'pocket' instead of the default 'pocket-cli'
 [[bin]]
 name = "pocket"
-path = "src/bin/pocket.rs"
+path = "src/main.rs"
 
 [dependencies]
 clap = { version = "4.4.6", features = ["derive"] }
