@@ -56,9 +56,9 @@ Current version: `v-pocket-R3B1-nCR2`
 
 I use a versioning system with letter-based releases, because apparently semver was too mainstream. For more information, see my [versioning philosophy](https://blog.frgmt.xyz/03102025-tech).
 
-![GitHub stars](https://img.shields.io/github/stars/frgmt0/pocket?style=social)
+![GitHub stars](https://img.shields.io/github/stars/frgmt0/pocket-cli?style=social)
 ![Crates.io Downloads](https://img.shields.io/crates/d/pocket-cli)
-![GitHub issues](https://img.shields.io/github/issues/frgmt0/pocket)
+![GitHub issues](https://img.shields.io/github/issues/frgmt0/pocket-cli)
 
 ## License
 
