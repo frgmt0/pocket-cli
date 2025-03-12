@@ -1,7 +1,7 @@
 # <img src="assets/images/doggie.gif" width="40" alt="Pocket Dog"> Pocket
 *Where your code snippets go to thrive, not disappear into the digital void*
 
-[![Build Status](https://img.shields.io/github/actions/workflow/status/frgmt0/pocket/release.yml?branch=main)](https://github.com/frgmt0/pocket/actions)
+![Lines of code](https://img.shields.io/tokei/lines/github/frgmt0/pocket)
 [![Crates.io](https://img.shields.io/crates/v/pocket-cli)](https://crates.io/crates/pocket-cli)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](https://github.com/frgmt0/pocket/pulls)
