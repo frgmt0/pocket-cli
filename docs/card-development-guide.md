@@ -1,28 +1,29 @@
-# Card Development Guide
+# Card Development Guide: Extending Pocket CLI
 
-This guide provides detailed instructions for developing custom Cards (plugins) for Pocket CLI.
+So you wanna build your own cards for Pocket CLI? Sweet. This guide will walk you through the whole process without the usual documentation dryness. Let's get into it.
 
-## Overview
+## WTF Are Cards Anyway?
 
-Cards are Pocket's plugin system that allows you to extend the functionality of the CLI with custom commands and features. Cards are implemented as Rust libraries that implement the `Card` trait.
+Cards are basically Pocket's plugin system - they let you add your own custom commands and features to the CLI. Under the hood, they're just Rust libraries that implement the `Card` trait. Nothing too mysterious.
 
-## Prerequisites
+## Before You Start
 
-- Rust and Cargo (1.70.0 or newer)
-- Basic understanding of Rust programming
-- Pocket CLI installed
+You'll need:
+- Rust + Cargo (v1.70.0+)
+- Some basic Rust knowledge (you don't need to be a guru)
+- Pocket CLI installed (duh)
 
-## Creating a New Card
+## Creating Your First Card
 
-### Using the Built-in Command
+### The Lazy Way (Recommended)
 
-The easiest way to create a new card is using the built-in command:
+The easiest approach is just letting Pocket do the heavy lifting:
 
 ```bash
-pocket cards create my-card "Description of my card"
+pocket cards create my-card "Does some cool stuff probably"
 ```
 
-This will create a new card in your wallet directory (`~/.pocket/wallet/my-card`) with the following structure:
+This creates a new card in `~/.pocket/wallet/my-card` with all the boilerplate stuff taken care of:
 
 ```
 my-card/
@@ -33,31 +34,31 @@ my-card/
     └── lib.rs
 ```
 
-### Manual Creation
+### The Manual Way (For Control Freaks)
 
-If you prefer to create the card manually, you can create the directory structure yourself:
+If you prefer doing things by hand:
 
 1. Create a directory in `~/.pocket/wallet/` with your card name
-2. Create the necessary files as described below
+2. Set up all the files yourself like some kind of masochist
 
-## Card Structure
+## The Important Files
 
 ### Cargo.toml
 
-The `Cargo.toml` file should include:
+Your `Cargo.toml` should look something like:
 
 ```toml
 [package]
 name = "pocket-card-my-card"
 version = "0.1.0"
 edition = "2021"
-description = "Description of my card"
-authors = ["Your Name <your.email@example.com>"]
+description = "Does some cool stuff probably"
+authors = ["You <your.email@example.com>"]
 license = "MIT"
 
 [lib]
 name = "pocket_card_my_card"
-crate-type = ["cdylib"]
+crate-type = ["cdylib"]  # this part is crucial
 
 [dependencies]
 anyhow = "1.0"
@@ -65,28 +66,28 @@ serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 ```
 
-Note the `crate-type = ["cdylib"]` which is required for dynamic loading.
+Don't forget that `crate-type = ["cdylib"]` - it's essential for dynamic loading.
 
 ### card.toml
 
-The `card.toml` file contains metadata about your card:
+This is just some metadata about your card:
 
 ```toml
 [card]
 name = "my-card"
 version = "0.1.0"
-description = "Description of my card"
-author = "Your Name"
+description = "Does some cool stuff probably"
+author = "You"
 enabled = true
 
 [commands]
-command1 = "Description of command1"
-command2 = "Description of command2"
+do_thing = "Makes the thing happen"
+other_thing = "Does that other thing you wanted"
 ```
 
-### lib.rs
+### lib.rs (The Important Bit)
 
-The `lib.rs` file is where you implement your card's functionality:
+Here's where the actual functionality lives:
 
 ```rust
 use anyhow::{Result, bail};
@@ -102,9 +103,9 @@ pub struct MyCard {
 
 #[derive(Debug, Serialize, Deserialize, Default)]
 pub struct CardConfig {
-    // Add any configuration options your card needs
-    pub option1: String,
-    pub option2: bool,
+    // stuff your card needs to know about
+    pub some_option: String,
+    pub another_flag: bool,
 }
 
 impl Card for MyCard {
@@ -121,21 +122,21 @@ impl Card for MyCard {
     }
     
     fn initialize(&mut self, config: &CardConfig) -> Result<()> {
-        // Initialize your card with the provided configuration
+        // setup stuff goes here
         self.config = config.clone();
         Ok(())
     }
     
     fn execute(&self, command: &str, args: &[String]) -> Result<()> {
         match command {
-            "command1" => {
-                // Implement command1
-                println!("Executing command1 with args: {:?}", args);
+            "do_thing" => {
+                // make the magic happen
+                println!("Doing the thing with: {:?}", args);
                 Ok(())
             },
-            "command2" => {
-                // Implement command2
-                println!("Executing command2 with args: {:?}", args);
+            "other_thing" => {
+                // do that other thing
+                println!("Other thing happening with: {:?}", args);
                 Ok(())
             },
             _ => bail!("Unknown command: {}", command),
@@ -145,31 +146,31 @@ impl Card for MyCard {
     fn commands(&self) -> Vec<CardCommand> {
         vec![
             CardCommand {
-                name: "command1".to_string(),
-                description: "Description of command1".to_string(),
-                usage: "pocket cards run my-card command1 [args...]".to_string(),
+                name: "do_thing".to_string(),
+                description: "Makes the thing happen".to_string(),
+                usage: "pocket cards run my-card do_thing [stuff...]".to_string(),
             },
             CardCommand {
-                name: "command2".to_string(),
-                description: "Description of command2".to_string(),
-                usage: "pocket cards run my-card command2 [args...]".to_string(),
+                name: "other_thing".to_string(),
+                description: "Does that other thing".to_string(),
+                usage: "pocket cards run my-card other_thing [args...]".to_string(),
             },
         ]
     }
     
     fn cleanup(&self) -> Result<()> {
-        // Perform any cleanup when the card is unloaded
+        // any cleanup when your card gets unloaded
         Ok(())
     }
 }
 
-// This is the entry point for the dynamic library
+// this bit is essential - don't mess it up
 #[no_mangle]
 pub extern "C" fn create_card() -> Box<dyn Card> {
     Box::new(MyCard {
         name: "my-card".to_string(),
         version: "0.1.0".to_string(),
-        description: "Description of my card".to_string(),
+        description: "Does some cool stuff probably".to_string(),
         config: CardConfig::default(),
     })
 }
@@ -177,94 +178,92 @@ pub extern "C" fn create_card() -> Box<dyn Card> {
 
 ## Building Your Card
 
-Once you've implemented your card, you can build it using:
+Building is pretty straightforward:
 
 ```bash
 pocket cards build my-card
 ```
 
-This will compile your card and place the dynamic library in the appropriate location for Pocket to find it.
+This compiles your card and puts the dynamic library where Pocket can find it.
 
-## Testing Your Card
+## Making Sure It Works
 
-After building, you can test your card:
+After building:
 
 ```bash
-# List available cards to verify yours is there
+# check if your card shows up
 pocket cards list
 
-# Enable your card if it's not already enabled
+# enable it if needed
 pocket cards enable my-card
 
-# Run one of your commands
-pocket cards run my-card command1
+# take it for a spin
+pocket cards run my-card do_thing
 ```
 
-## Advanced Topics
+## Next-Level Stuff
 
-### Accessing Pocket's API
+### Tapping into Pocket's Internals
 
-Your card can access Pocket's API by adding the `pocket-cli` crate as a dependency:
+Your card can use Pocket's API by adding the dependency:
 
-First, add the package
 ```bash
 cargo add pocket-cli
 ```
-And then, add it to your `Cargo.toml`
+
+Then in your `Cargo.toml`:
 ```toml
 [dependencies]
-pocket-cli = { path = "/path/to/pocket" }
+pocket-cli = "0.6.2"
 ```
 
-This allows you to interact with Pocket's core functionality, such as:
+This lets you do things like:
+- Access storage to read/write snippets
+- Use the version control system
+- Talk to other cards
 
-- Accessing the storage manager to read/write snippets
-- Using the version control system
-- Interacting with other cards
+> if something breaks here, reach out. i'm still figuring some of this out.
 
-> NOTE: if you run into any issues please reach out.
+### Config Management
 
-### Configuration Management
+Cards can have their own settings in the `card.toml` file.
 
-Cards can have their own configuration options. These are stored in the `card.toml` file and can be accessed through the `CardConfig` struct.
-
-To add custom configuration options:
-
+To add custom options:
 1. Define them in your `CardConfig` struct
-2. Access them in your card's methods
-3. Users can modify them by editing the `~/.pocket/cards/my-card.toml` file
+2. Use them in your card's methods
+3. Users can tweak them by editing `~/.pocket/cards/my-card.toml`
 
-### Command Line Argument Parsing
+### Fancy Argument Parsing
 
-For more complex command line argument parsing, you can use the `clap` crate:
+For more complex CLI args, clap is your friend:
 
 ```toml
 [dependencies]
 clap = { version = "4.4", features = ["derive"] }
 ```
 
-Then in your `execute` method:
+Then in your code:
 
 ```rust
 fn execute(&self, command: &str, args: &[String]) -> Result<()> {
     match command {
-        "complex-command" => {
+        "fancy-command" => {
             use clap::Parser;
             
             #[derive(Parser)]
             struct Args {
                 #[arg(short, long)]
-                option: String,
+                some_option: String,
                 
                 #[arg(short, long)]
-                flag: bool,
+                some_flag: bool,
                 
-                input: Vec<String>,
+                stuff: Vec<String>,
             }
             
-            let args = Args::parse_from(std::iter::once("complex-command".to_string()).chain(args.iter().cloned()));
+            let args = Args::parse_from(std::iter::once("fancy-command".to_string()).chain(args.iter().cloned()));
             
-            // Use args.option, args.flag, args.input
+            // now you can use args.some_option, args.some_flag, args.stuff
             
             Ok(())
         },
@@ -273,9 +272,9 @@ fn execute(&self, command: &str, args: &[String]) -> Result<()> {
 }
 ```
 
-## Examples
+## Example Cards
 
-### Hello World Card
+### Hello World (The Simplest Possible Card)
 
 ```rust
 use anyhow::{Result, bail};
@@ -287,17 +286,7 @@ pub struct HelloWorldCard {
 }
 
 impl Card for HelloWorldCard {
-    fn name(&self) -> &str {
-        &self.name
-    }
-    
-    fn version(&self) -> &str {
-        &self.version
-    }
-    
-    fn description(&self) -> &str {
-        &self.description
-    }
+    // basic getters omitted for brevity
     
     fn initialize(&mut self, _config: &CardConfig) -> Result<()> {
         Ok(())
@@ -339,9 +328,7 @@ pub extern "C" fn create_card() -> Box<dyn Card> {
 }
 ```
 
-### Snippet Counter Card
-
-This card counts the number of snippets in your Pocket:
+### Snippet Counter (Slightly More Useful)
 
 ```rust
 use anyhow::{Result, bail};
@@ -354,14 +341,14 @@ pub struct CounterCard {
 }
 
 impl Card for CounterCard {
-    // ... other trait methods ...
+    // other stuff omitted
     
     fn execute(&self, command: &str, _args: &[String]) -> Result<()> {
         match command {
             "count" => {
                 let storage = StorageManager::new(None)?;
                 let entries = storage.list_entries(None)?;
-                println!("You have {} snippets in your Pocket.", entries.len());
+                println!("You've got {} snippets in your Pocket.", entries.len());
                 Ok(())
             },
             _ => bail!("Unknown command: {}", command),
@@ -372,7 +359,7 @@ impl Card for CounterCard {
         vec![
             CardCommand {
                 name: "count".to_string(),
-                description: "Count the number of snippets".to_string(),
+                description: "Count your snippets".to_string(),
                 usage: "pocket cards run counter count".to_string(),
             },
         ]
@@ -384,52 +371,52 @@ pub extern "C" fn create_card() -> Box<dyn Card> {
     Box::new(CounterCard {
         name: "counter".to_string(),
         version: "0.1.0".to_string(),
-        description: "Count snippets in your Pocket".to_string(),
+        description: "Count stuff in your Pocket".to_string(),
     })
 }
 ```
 
-## Troubleshooting
+## When Things Break
 
-### Card Not Loading
+### Card Won't Load
 
 If your card isn't showing up in `pocket cards list`:
 
-1. Check that it's built correctly: `pocket cards build my-card`
-2. Verify the dynamic library exists in `~/.pocket/wallet/my-card/target/release/`
-3. Check for any error messages in the console output
-4. Make sure the `create_card` function is exported with `#[no_mangle]`
+1. Check that it built correctly: `pocket cards build my-card`
+2. Make sure the library exists in `~/.pocket/wallet/my-card/target/release/`
+3. Look for any errors in the console
+4. Double-check that `create_card` function has `#[no_mangle]`
 
-### Runtime Errors
+### Runtime Disasters
 
-If your card is loading but commands are failing:
+If your card loads but crashes:
 
-1. Add debug prints to your code to trace execution
-2. Check that your card's configuration is correct
-3. Verify that any dependencies your card needs are available
+1. Add some println debugging (the oldest trick in the book)
+2. Check your card's config
+3. Make sure all dependencies are where they should be
 
-## Best Practices
+## Tips for Not Sucking
 
-1. **Keep it focused**: Cards should do one thing well
-2. **Handle errors gracefully**: Use proper error handling with `anyhow::Result`
-3. **Document your commands**: Provide clear descriptions and usage examples
-4. **Version your card**: Follow semantic versioning for your card
-5. **Test thoroughly**: Test your card with different inputs and edge cases
+1. **Focus**: Cards should do one thing well, not twenty things poorly
+2. **Error handling**: Use `anyhow::Result` instead of panicking
+3. **Documentation**: Help your users understand your commands
+4. **Versioning**: Follow semver so upgrades don't break stuff
+5. **Testing**: Try to break your card before others do it for you
 
-## Publishing Your Card
+## Sharing Your Card
 
-To share your card with others:
+Want to inflict your creation on others?
 
-1. Push your card to a GitHub repository
-2. Others can install it using:
+1. Push it to GitHub
+2. They can install it with:
    ```bash
-   pocket cards add my-card https://github.com/username/pocket-card-my-card
+   pocket cards add my-card https://github.com/yourusername/pocket-card-my-card
    pocket cards build my-card
    ```
 
-## Resources
+## Useful Links
 
-- [Rust Documentation](https://doc.rust-lang.org/book/)
-- [anyhow Crate](https://docs.rs/anyhow/latest/anyhow/)
-- [clap Crate](https://docs.rs/clap/latest/clap/)
-- [Pocket CLI Repository](https://github.com/frgmt0/pocket) 
+- [Rust Book](https://doc.rust-lang.org/book/) (for when you forget how borrowing works)
+- [anyhow Docs](https://docs.rs/anyhow/latest/anyhow/) (for error handling)
+- [clap Docs](https://docs.rs/clap/latest/clap/) (for fancy CLI stuff)
+- [Pocket CLI Repo](https://github.com/frgmt0/pocket) (the mothership)

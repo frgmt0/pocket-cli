@@ -1,160 +1,179 @@
-# Command Reference
+# Pocket CLI Command Reference
 
 ## Snippet Management
+*Because copy-paste is so 2005*
 
 ### Adding Content
+*Getting your code bits into the system*
 
 ```bash
-# Add from a file
+# Add from a file (the normal way)
 pocket add file.js
 
-# Add with inline text
-pocket add -m "code goes here"
+# Add with inline text (for the impatient)
+pocket add -m "console.log('why am I hard-coding this?');"
 
-# Open editor to add content
+# Open editor to add content (for the thoughtful types)
 pocket add -e
 
-# Add to a specific backpack
+# Add to a specific backpack (organization level: advanced)
 pocket add -b backpack_name file.js
 ```
 
 ### Finding Content
+*Because what's the point of saving if you can't find it later?*
 
 ```bash
-# List all entries
+# List ALL THE THINGS
 pocket list
 
 # List entries in a specific backpack
 pocket list --backpack backpack_name
 
-# Search for entries
+# Search for entries (basic mode)
 pocket search "query"
 
-# Search with exact matching
+# Search with exact matching (perfectionist mode)
 pocket search "query" --exact
 
-# Search in a specific backpack
+# Search in a specific backpack (when you've actually organized things)
 pocket search "query" --backpack backpack_name
 ```
 
 ### Using Content
+*The payoff for all that meticulous hoarding*
 
 ```bash
-# Insert a snippet into a file
+# Insert a snippet into a file (the magic moment)
 pocket insert ID file.js
 
-# Remove a snippet
+# Remove a snippet (spring cleaning)
 pocket remove ID
 
-# Edit a snippet
+# Edit a snippet (because perfection is a process)
 pocket edit ID
 ```
 
 ## Organization
+*Tools for people who have their life together, or aspire to*
 
 ### Backpacks
+*Like folders, but more adventurous*
 
 ```bash
-# Create a new backpack
+# Create a new backpack (for when one messy pile isn't enough)
 pocket create backpack name
 
-# List entries in a backpack
+# List entries in a backpack (see what's inside)
 pocket list --backpack name
 ```
 
 ### Workflows
+*For when you're tired of typing the same commands repeatedly*
 
 ```bash
-# Execute a workflow
+# Execute a workflow (one-liner automation)
 pocket lint "search 'query' > insert file.js"
 
-# Save a workflow
+# Save a workflow (for future laziness)
 pocket lint --save workflow_name "search 'query' > insert file.js"
 
-# Execute a saved workflow
+# Execute a saved workflow (maximum efficiency)
 pocket lint workflow_name
 
-# Delete a workflow
+# Delete a workflow (spring cleaning, automation edition)
 pocket delete-workflow workflow_name
 ```
 
 ## Version Control
+*Git, but with more... something? i'm not sure*
+NOTE: STILL IN ALPHA/BETA!!!!! Use at your own risk!
 
 ```bash
-# Initialize a repository
+# Initialize a repository (the beginning of your journey)
 pocket new-repo
 
-# Show repository status
+# Show repository status (what mess have I created?)
 pocket status
 
-# Add files to staging area
+# Add files to staging area (single file mode)
 pocket pile file.js
+# Add files to staging area (sweep everything under the rug mode)
 pocket pile --all
 
-# Remove files from staging area
+# Remove files from staging area (single file regret)
 pocket unpile file.js
+# Remove files from staging area (total regret)
 pocket unpile --all
 
-# Create a commit
-pocket shove -m "Commit message"
-pocket shove -e  # Open editor for message
+# Create a commit (freeze your work in digital amber)
+pocket shove -m "Fixed the thing that wasn't working"
+pocket shove -e  # For when your commit deserves an essay
 
-# Show commit history
+# Show commit history (trip down memory lane)
 pocket log
-pocket log --verbose
+pocket log --verbose  # For when you want ALL the details
 
-# Create a new timeline (branch)
+# Create a new timeline (branch) (parallel universe mode)
 pocket timeline new name
 
-# Switch to a timeline
+# Switch to a timeline (universe hopping)
 pocket timeline switch name
 
-# List timelines
+# List timelines (see all your parallel universes)
 pocket timeline list
 
-# Merge a timeline
+# FUTURE Merge a timeline (universe collision)
 pocket merge timeline_name
 
-# Add a remote repository
+# FUTURE Add a remote repository (make friends with other computers)
 pocket remote add name url
 
-# Push to a remote
+# FUTURE Push to a remote (share your genius)
 pocket push remote_name
 ```
 
 ## Cards (Plugins)
+*Extend functionality without learning C++*
 
 ```bash
-# List available cards
+# List available cards (see what toys you have)
 pocket cards list
 
-# Add a card from GitHub
+# Add a card from GitHub (trust someone else's code)
 pocket cards add name url
 
-# Create a new local card
+# Create a new local card (DIY mode)
 pocket cards create name "description"
 
-# Build a card
+# Build a card (make your code actually work)
 pocket cards build name
 
-# Run a card command
+# Run a card command (the moment of truth)
 pocket cards run card_name command [args...]
 
-# Enable/disable a card
+# Enable/disable a card (power management)
 pocket cards enable name
 pocket cards disable name
 
-# Remove a card
+# Remove a card (breakup time)
 pocket cards remove name
 ```
 
 ## General
+*The meta stuff*
 
 ```bash
-# Display help
+# Display help (admit defeat)
 pocket help
 pocket help command
 
-# Display version information
+# Display version information (for bragging rights)
 pocket version
-``` 
+```
+
+## The Fine Print
+
+Remember, with great Pocket power comes great responsibility. These commands can make your coding life dramatically better—or at least more organized, which is basically the same thing. If something breaks, well... you've got version control, right?
+
+Happy pocketing!
