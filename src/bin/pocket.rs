@@ -5,7 +5,7 @@ use colored::Colorize;
 use anyhow::{Result, anyhow};
 use std::fs;
 use pocket_cli::vcs::Repository;
-use pocket_cli::plugins::{PluginManager, Plugin, PluginConfig, PluginCommand};
+use pocket_cli::cards::{CardManager, Card, CardConfig, CardCommand};
 
 use pocket_cli::vcs::commands::{
     status_command,
@@ -176,11 +176,11 @@ enum Commands {
         path: PathBuf,
     },
     
-    /// 🔌 Manage plugins
-    Plugins {
-        /// Plugin subcommand
+    /// 🔌 Manage cards
+    Cards {
+        /// Card subcommand
         #[command(subcommand)]
-        operation: Option<PluginOperation>,
+        operation: Option<CardOperation>,
         
         /// Repository path
         #[arg(short, long, default_value = ".")]
@@ -210,42 +210,42 @@ enum RemoteOperation {
     List,
 }
 
-/// Plugin operations
+/// Card operations
 #[derive(Subcommand)]
-enum PluginOperation {
-    /// Add a new plugin
+enum CardOperation {
+    /// Add a new card
     Add {
-        /// Plugin name
+        /// Card name
         name: String,
         
-        /// Plugin URL
+        /// Card URL
         url: String,
     },
     
-    /// Remove a plugin
+    /// Remove a card
     Remove {
-        /// Plugin name
+        /// Card name
         name: String,
     },
     
-    /// List all plugins
+    /// List all cards
     List,
     
-    /// Enable a plugin
+    /// Enable a card
     Enable {
-        /// Plugin name
+        /// Card name
         name: String,
     },
     
-    /// Disable a plugin
+    /// Disable a card
     Disable {
-        /// Plugin name
+        /// Card name
         name: String,
     },
     
-    /// Execute a plugin command
+    /// Execute a card command
     Execute {
-        /// Plugin name
+        /// Card name
         name: String,
         
         /// Command to execute
@@ -353,8 +353,8 @@ fn main() -> Result<()> {
                 std::process::exit(1);
             }
         },
-        Commands::Plugins { operation, path } => {
-            if let Err(e) = plugins_command(path, operation.as_ref()) {
+        Commands::Cards { operation, path } => {
+            if let Err(e) = cards_command(path, operation.as_ref()) {
                 eprintln!("{} {}", "❌".red(), format!("Error: {}", e).red());
                 process::exit(1);
             }
@@ -364,63 +364,63 @@ fn main() -> Result<()> {
     Ok(())
 }
 
-/// Handles plugin commands
-fn plugins_command(path: &Path, operation: Option<&PluginOperation>) -> Result<()> {
-    // Create a plugin manager
+/// Handles card commands
+fn cards_command(path: &Path, operation: Option<&CardOperation>) -> Result<()> {
+    // Create a card manager
     let data_dir = path.join(".pocket");
-    let plugin_dir = data_dir.join("plugins");
-    let mut plugin_manager = PluginManager::new(&plugin_dir);
+    let card_dir = data_dir.join("cards");
+    let mut card_manager = CardManager::new(&card_dir);
     
-    // Load plugins
-    plugin_manager.load_plugins()?;
+    // Load cards
+    card_manager.load_cards()?;
     
     // Handle the operation
     match operation {
-        Some(PluginOperation::Add { name, url }) => {
-            println!("{} Adding plugin {} with URL {}", "🔌".blue(), name.bright_green(), url.bright_white());
-            // In a real implementation, we would add the plugin here
-            println!("{} Plugin added successfully", "✅".green());
+        Some(CardOperation::Add { name, url }) => {
+            println!("{} Adding card {} with URL {}", "🔌".blue(), name.bright_green(), url.bright_white());
+            // In a real implementation, we would add the card here
+            println!("{} Card added successfully", "✅".green());
         },
-        Some(PluginOperation::Remove { name }) => {
-            println!("{} Removing plugin {}", "🔌".blue(), name.bright_green());
-            // In a real implementation, we would remove the plugin here
-            println!("{} Plugin removed successfully", "✅".green());
+        Some(CardOperation::Remove { name }) => {
+            println!("{} Removing card {}", "🔌".blue(), name.bright_green());
+            // In a real implementation, we would remove the card here
+            println!("{} Card removed successfully", "✅".green());
         },
-        Some(PluginOperation::List) => {
-            println!("{} Available plugins:", "🔌".blue());
-            let plugins = plugin_manager.list_plugins();
-            if plugins.is_empty() {
-                println!("  No plugins installed");
+        Some(CardOperation::List) => {
+            println!("{} Available cards:", "🔌".blue());
+            let cards = card_manager.list_cards();
+            if cards.is_empty() {
+                println!("  No cards installed");
             } else {
-                for (name, version, enabled) in plugins {
+                for (name, version, enabled) in cards {
                     let status = if enabled { "enabled".green() } else { "disabled".red() };
                     println!("  {} (v{}) - {}", name.bright_green(), version, status);
                 }
             }
         },
-        Some(PluginOperation::Enable { name }) => {
-            println!("{} Enabling plugin {}", "🔌".blue(), name.bright_green());
-            plugin_manager.enable_plugin(name)?;
-            println!("{} Plugin enabled successfully", "✅".green());
+        Some(CardOperation::Enable { name }) => {
+            println!("{} Enabling card {}", "🔌".blue(), name.bright_green());
+            card_manager.enable_card(name)?;
+            println!("{} Card enabled successfully", "✅".green());
         },
-        Some(PluginOperation::Disable { name }) => {
-            println!("{} Disabling plugin {}", "🔌".blue(), name.bright_green());
-            plugin_manager.disable_plugin(name)?;
-            println!("{} Plugin disabled successfully", "✅".green());
+        Some(CardOperation::Disable { name }) => {
+            println!("{} Disabling card {}", "🔌".blue(), name.bright_green());
+            card_manager.disable_card(name)?;
+            println!("{} Card disabled successfully", "✅".green());
         },
-        Some(PluginOperation::Execute { name, command, args }) => {
-            println!("{} Executing command {} for plugin {} with args: {:?}", "🔌".blue(), command.bright_white(), name.bright_green(), args);
-            plugin_manager.execute_command(name, command, args)?;
+        Some(CardOperation::Execute { name, command, args }) => {
+            println!("{} Executing command {} for card {} with args: {:?}", "🔌".blue(), command.bright_white(), name.bright_green(), args);
+            card_manager.execute_command(name, command, args)?;
             println!("{} Command executed successfully", "✅".green());
         },
         None => {
-            // If no operation is specified, list all plugins
-            println!("{} Available plugins:", "🔌".blue());
-            let plugins = plugin_manager.list_plugins();
-            if plugins.is_empty() {
-                println!("  No plugins installed");
+            // If no operation is specified, list all cards
+            println!("{} Available cards:", "🔌".blue());
+            let cards = card_manager.list_cards();
+            if cards.is_empty() {
+                println!("  No cards installed");
             } else {
-                for (name, version, enabled) in plugins {
+                for (name, version, enabled) in cards {
                     let status = if enabled { "enabled".green() } else { "disabled".red() };
                     println!("  {} (v{}) - {}", name.bright_green(), version, status);
                 }

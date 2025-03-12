@@ -8,5 +8,5 @@ pub mod storage;
 pub mod models;
 pub mod utils;
 pub mod version;
-pub mod plugins;
+pub mod cards;
 // Add any other modules that need to be accessible to tests 

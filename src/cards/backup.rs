@@ -1,6 +1,6 @@
-//! Backup plugin for Pocket CLI
+//! Backup card for Pocket CLI
 //!
-//! This plugin provides functionality for backing up and restoring snippets and repositories.
+//! This card provides functionality for backing up and restoring snippets and repositories.
 
 use std::path::{Path, PathBuf};
 use std::fs;
@@ -8,12 +8,12 @@ use chrono::{DateTime, Utc};
 use anyhow::{Result, Context};
 use serde::{Serialize, Deserialize};
 
-use crate::plugins::{Plugin, PluginConfig, PluginCommand};
+use crate::cards::{Card, CardConfig, CardCommand};
 use crate::storage::StorageManager;
 
-/// Configuration for the backup plugin
+/// Configuration for the backup card
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct BackupPluginConfig {
+pub struct BackupCardConfig {
     /// Directory where backups are stored
     pub backup_dir: PathBuf,
     
@@ -30,7 +30,7 @@ pub struct BackupPluginConfig {
     pub last_backup: Option<DateTime<Utc>>,
 }
 
-impl Default for BackupPluginConfig {
+impl Default for BackupCardConfig {
     fn default() -> Self {
         Self {
             backup_dir: dirs::data_dir()
@@ -67,32 +67,32 @@ pub struct BackupMetadata {
     pub size: u64,
 }
 
-/// Plugin for backing up and restoring snippets and repositories
-pub struct BackupPlugin {
-    /// Name of the plugin
+/// Card for backing up and restoring snippets and repositories
+pub struct BackupCard {
+    /// Name of the card
     name: String,
     
-    /// Version of the plugin
+    /// Version of the card
     version: String,
     
-    /// Description of the plugin
+    /// Description of the card
     description: String,
     
-    /// Configuration for the plugin
-    config: BackupPluginConfig,
+    /// Configuration for the card
+    config: BackupCardConfig,
     
     /// Path to the Pocket data directory
     data_dir: PathBuf,
 }
 
-impl BackupPlugin {
-    /// Creates a new backup plugin
+impl BackupCard {
+    /// Creates a new backup card
     pub fn new(data_dir: impl AsRef<Path>) -> Self {
         Self {
             name: "backup".to_string(),
             version: env!("CARGO_PKG_VERSION").to_string(),
             description: "Provides functionality for backing up and restoring snippets and repositories".to_string(),
-            config: BackupPluginConfig::default(),
+            config: BackupCardConfig::default(),
             data_dir: data_dir.as_ref().to_path_buf(),
         }
     }
@@ -354,7 +354,7 @@ impl BackupPlugin {
     }
 }
 
-impl Plugin for BackupPlugin {
+impl Card for BackupCard {
     fn name(&self) -> &str {
         &self.name
     }
@@ -367,10 +367,10 @@ impl Plugin for BackupPlugin {
         &self.description
     }
     
-    fn initialize(&mut self, config: &PluginConfig) -> Result<()> {
-        // Load plugin-specific configuration
+    fn initialize(&mut self, config: &CardConfig) -> Result<()> {
+        // Load card-specific configuration
         if let Some(backup_config) = config.options.get("backup") {
-            if let Ok(parsed_config) = serde_json::from_value::<BackupPluginConfig>(backup_config.clone()) {
+            if let Ok(parsed_config) = serde_json::from_value::<BackupCardConfig>(backup_config.clone()) {
                 self.config = parsed_config;
             }
         }
@@ -435,24 +435,24 @@ impl Plugin for BackupPlugin {
         }
     }
     
-    fn commands(&self) -> Vec<PluginCommand> {
+    fn commands(&self) -> Vec<CardCommand> {
         vec![
-            PluginCommand {
+            CardCommand {
                 name: "backup".to_string(),
                 description: "Creates a backup of the current state".to_string(),
                 usage: "pocket backup [description]".to_string(),
             },
-            PluginCommand {
+            CardCommand {
                 name: "restore".to_string(),
                 description: "Restores a backup".to_string(),
                 usage: "pocket restore <backup-id>".to_string(),
             },
-            PluginCommand {
+            CardCommand {
                 name: "list".to_string(),
                 description: "Lists all available backups".to_string(),
                 usage: "pocket backup list".to_string(),
             },
-            PluginCommand {
+            CardCommand {
                 name: "delete".to_string(),
                 description: "Deletes a backup".to_string(),
                 usage: "pocket backup delete <backup-id>".to_string(),

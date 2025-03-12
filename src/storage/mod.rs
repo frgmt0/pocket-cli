@@ -27,7 +27,7 @@ impl StorageManager {
         create_dir_all(&pocket_dir.join("data/entries"))?;
         create_dir_all(&pocket_dir.join("data/backpacks"))?;
         create_dir_all(&pocket_dir.join("data/workflows"))?;
-        create_dir_all(&pocket_dir.join("extensions"))?;
+        create_dir_all(&pocket_dir.join("wallet"))?;
         
         Ok(pocket_dir)
     }

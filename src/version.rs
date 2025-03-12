@@ -10,25 +10,12 @@ pub const VERSION_LETTER: &str = "v-pocket-R3B1-ncR2<";
 pub const VERSION_DATE: &str = "03252025";
 
 /// The current version as a human-readable string
-pub const VERSION_STRING: &str = "Pocket v-pocket-R3B1-ncR2< (03252025 - Plugin System)";
+pub const VERSION_STRING: &str = "Pocket v-pocket-R3B1-ncR2< (03252025 - Card System)";
 
 /// Compatibility information
-pub const COMPATIBILITY: Option<&str> = Some("Compatibility only extends to basic functions of Pocket and does not include any VCS support or Plugin support");
+pub const COMPATIBILITY: Option<&str> = Some("Compatibility only extends to basic functions of Pocket and does not include any VCS support or Card support");
 
-/// Get the current version as a letter-based string
-pub fn get_version_letter() -> &'static str {
-    VERSION_LETTER
-}
-
-/// Get the current version as a date string (for internal tracking)
-pub fn get_version_date() -> &'static str {
-    VERSION_DATE
-}
-
-/// Get the current version as a human-readable string
-pub fn get_version_string() -> &'static str {
-    VERSION_STRING
-}
+pub const AUTHOR: &str = "frgmt0 (j)";
 
 /// Get the current version as a structured object
 pub fn get_version() -> Version {
@@ -36,9 +23,10 @@ pub fn get_version() -> Version {
         letter: VERSION_LETTER,
         date: VERSION_DATE,
         semver: env!("CARGO_PKG_VERSION"),
-        name: "Plugin System",
+        name: "Card System",
         compatibility: COMPATIBILITY,
         stability: Stability::Beta,
+        author: AUTHOR,
     }
 }
 
@@ -87,16 +75,22 @@ pub struct Version {
     
     /// Stability level
     pub stability: Stability,
+
+    /// Author of this version/release
+    pub author: &'static str,
 }
 
 impl std::fmt::Display for Version {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "Built by {}\n\n", self.author)?;
         write!(f, "{}", self.letter)?;
         
         if let Some(compat) = self.compatibility {
-            write!(f, "-{}", compat)?;
+            write!(f, " - {}", compat)?;
         }
         
-        write!(f, " ({})", self.name)
+        write!(f, " ({})", self.name)?;
+        
+        Ok(())
     }
 } 

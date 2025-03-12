@@ -5,13 +5,13 @@ mod storage;
 mod utils;
 mod version;
 mod vcs;
-mod plugins;
+mod cards;
 
 use clap::{Parser, Subcommand};
-use anyhow::Result;
+use anyhow::{Result, Context};
 use colored::Colorize;
 use std::path::Path;
-use pocket_cli::plugins::{PluginManager, Plugin, PluginConfig, PluginCommand};
+use pocket_cli::cards::{CardManager, Card, CardConfig, CardCommand};
 
 #[derive(Parser)]
 #[command(
@@ -319,11 +319,11 @@ enum Commands {
         list: bool,
     },
 
-    /// 🔌 Manage plugins
-    Plugins {
-        /// Plugin subcommand
+    /// 🔌 Manage cards
+    Cards {
+        /// Card subcommand
         #[command(subcommand)]
-        operation: Option<PluginOperation>,
+        operation: Option<CardOperation>,
     }
 }
 
@@ -390,40 +390,40 @@ enum RemoteCommands {
 }
 
 #[derive(Subcommand)]
-enum PluginOperation {
-    /// Add a new plugin
+enum CardOperation {
+    /// Add a new card
     Add {
-        /// Plugin name
+        /// Card name
         name: String,
         
-        /// Plugin URL
+        /// Card URL
         url: String,
     },
     
-    /// Remove a plugin
+    /// Remove a card
     Remove {
-        /// Plugin name
+        /// Card name
         name: String,
     },
     
-    /// List all plugins
+    /// List all cards
     List,
     
-    /// Enable a plugin
+    /// Enable a card
     Enable {
-        /// Plugin name
+        /// Card name
         name: String,
     },
     
-    /// Disable a plugin
+    /// Disable a card
     Disable {
-        /// Plugin name
+        /// Card name
         name: String,
     },
     
-    /// Execute a plugin command
-    Execute {
-        /// Plugin name
+    /// Run a card command
+    Run {
+        /// Card name
         name: String,
         
         /// Command to execute
@@ -432,6 +432,25 @@ enum PluginOperation {
         /// Arguments for the command
         #[arg(trailing_var_arg = true)]
         args: Vec<String>,
+    },
+    
+    /// Create a new local card
+    Create {
+        /// Card name
+        name: String,
+        
+        /// Card description
+        description: String,
+    },
+    
+    /// Build a card
+    Build {
+        /// Card name
+        name: String,
+        
+        /// Build in release mode
+        #[arg(long, short)]
+        release: bool,
     },
 }
 
@@ -584,8 +603,8 @@ fn main() -> Result<()> {
             let path = std::path::Path::new(".");
             vcs::commands::ignore_command(path, pattern.as_deref(), remove.as_deref(), list)?;
         }
-        Commands::Plugins { operation } => {
-            plugins_command(operation.as_ref())?;
+        Commands::Cards { operation } => {
+            cards_command(operation.as_ref())?;
         }
     }
 
@@ -631,73 +650,444 @@ fn print_custom_help() {
     println!("    reload              Reload all extensions");
     println!("    help                Display help information");
     println!("    version             Display version information");
+    println!("    cards               Manage cards (cards)");
     println!("");
     
     println!("For more information about a specific command, run:");
     println!("    pocket help <COMMAND>");
 }
 
-/// Handles plugin commands
-fn plugins_command(operation: Option<&PluginOperation>) -> Result<()> {
-    // Create a plugin manager
-    let data_dir = dirs::data_dir().unwrap_or_else(|| std::path::PathBuf::from(".")).join(".pocket");
-    let plugin_dir = data_dir.join("plugins");
-    let mut plugin_manager = PluginManager::new(&plugin_dir);
+/// Handles card commands
+fn cards_command(operation: Option<&CardOperation>) -> Result<()> {
+    // Create a card manager
+    let home_dir = dirs::home_dir().unwrap_or_else(|| std::path::PathBuf::from("."));
+    let data_dir = home_dir.join(".pocket");
+    let card_dir = data_dir.join("cards");
+    let wallet_dir = data_dir.join("wallet");
+    let mut card_manager = CardManager::new(&card_dir);
     
-    // Load plugins
-    plugin_manager.load_plugins()?;
+    // Ensure the wallet directory exists
+    if !wallet_dir.exists() {
+        std::fs::create_dir_all(&wallet_dir)
+            .context("Failed to create wallet directory")?;
+    }
+    
+    // Load cards
+    card_manager.load_cards()?;
     
     // Handle the operation
     match operation {
-        Some(PluginOperation::Add { name, url }) => {
-            println!("{} Adding plugin {} with URL {}", "🔌".blue(), name.bright_green(), url.bright_white());
-            // In a real implementation, we would add the plugin here
-            println!("{} Plugin added successfully", "✅".green());
+        Some(CardOperation::Add { name, url }) => {
+            println!("{} Adding card {} from {}", "🔌".blue(), name.bright_green(), url.bright_white());
+            
+            // Check if the card already exists
+            if card_manager.card_exists(name) {
+                println!("{} Card with name '{}' already exists", "❌".red(), name);
+                return Ok(());
+            }
+            
+            // Validate URL format (simple check for GitHub URL)
+            if !url.starts_with("https://github.com/") && !url.starts_with("http://github.com/") {
+                println!("{} Currently only GitHub URLs are supported (format: https://github.com/username/repo)", "❌".red());
+                return Ok(());
+            }
+            
+            // Create a temporary directory for cloning
+            let temp_dir = std::env::temp_dir().join(format!("pocket-card-{}", name));
+            if temp_dir.exists() {
+                std::fs::remove_dir_all(&temp_dir)
+                    .context("Failed to clean up temporary directory")?;
+            }
+            std::fs::create_dir_all(&temp_dir)
+                .context("Failed to create temporary directory")?;
+            
+            // Clone the repository
+            println!("{} Cloning repository...", "⏳".yellow());
+            let status = std::process::Command::new("git")
+                .args(&["clone", url, "--depth=1", "."])
+                .current_dir(&temp_dir)
+                .status()
+                .context("Failed to execute git clone command")?;
+            
+            if !status.success() {
+                println!("{} Failed to clone repository", "❌".red());
+                return Ok(());
+            }
+            
+            // Check for card.toml file
+            let card_toml_path = temp_dir.join("card.toml");
+            if !card_toml_path.exists() {
+                println!("{} Repository does not contain a card.toml file", "❌".red());
+                return Ok(());
+            }
+            
+            // Check for src/lib.rs or main card file
+            let lib_rs_path = temp_dir.join("src").join("lib.rs");
+            if !lib_rs_path.exists() {
+                println!("{} Repository does not contain a src/lib.rs file", "❌".red());
+                return Ok(());
+            }
+            
+            // Copy the card to the extensions directory
+            let card_dir = wallet_dir.join(name);
+            if card_dir.exists() {
+                std::fs::remove_dir_all(&card_dir)
+                    .context("Failed to remove existing card directory")?;
+            }
+            
+            // Use a recursive copy function to copy the repository
+            copy_dir_all(&temp_dir, &card_dir)
+                .context("Failed to copy card files")?;
+            
+            // Clean up temporary directory
+            std::fs::remove_dir_all(&temp_dir)
+                .context("Failed to clean up temporary directory")?;
+            
+            // Register the card in the configuration
+            card_manager.register_card_config(name, url)?;
+            
+            println!("{} Card added successfully", "✅".green());
+            println!("To use the card, you need to build it with: pocket cards build {}", name);
         },
-        Some(PluginOperation::Remove { name }) => {
-            println!("{} Removing plugin {}", "🔌".blue(), name.bright_green());
-            // In a real implementation, we would remove the plugin here
-            println!("{} Plugin removed successfully", "✅".green());
+        Some(CardOperation::Remove { name }) => {
+            println!("{} Removing card {}", "🔌".blue(), name.bright_green());
+            
+            // Check if the card exists
+            if !card_manager.card_exists(name) {
+                println!("{} Card '{}' not found", "❌".red(), name);
+                return Ok(());
+            }
+            
+            // Remove the card directory
+            let card_dir = wallet_dir.join(name);
+            if card_dir.exists() {
+                std::fs::remove_dir_all(&card_dir)
+                    .context("Failed to remove card directory")?;
+            }
+            
+            // Remove the card from the configuration
+            card_manager.remove_card_config(name)?;
+            
+            println!("{} Card removed successfully", "✅".green());
         },
-        Some(PluginOperation::List) => {
-            println!("{} Available plugins:", "🔌".blue());
-            let plugins = plugin_manager.list_plugins();
-            if plugins.is_empty() {
-                println!("  No plugins installed");
+        Some(CardOperation::List) => {
+            println!("{} Available cards:", "🔌".blue());
+            let cards = card_manager.list_cards();
+            if cards.is_empty() {
+                println!("  No cards installed");
             } else {
-                for (name, version, enabled) in plugins {
+                for (name, version, enabled) in cards {
                     let status = if enabled { "enabled".green() } else { "disabled".red() };
                     println!("  {} (v{}) - {}", name.bright_green(), version, status);
                 }
             }
         },
-        Some(PluginOperation::Enable { name }) => {
-            println!("{} Enabling plugin {}", "🔌".blue(), name.bright_green());
-            plugin_manager.enable_plugin(name)?;
-            println!("{} Plugin enabled successfully", "✅".green());
+        Some(CardOperation::Enable { name }) => {
+            println!("{} Enabling card {}", "🔌".blue(), name.bright_green());
+            card_manager.enable_card(name)?;
+            println!("{} Card enabled successfully", "✅".green());
         },
-        Some(PluginOperation::Disable { name }) => {
-            println!("{} Disabling plugin {}", "🔌".blue(), name.bright_green());
-            plugin_manager.disable_plugin(name)?;
-            println!("{} Plugin disabled successfully", "✅".green());
+        Some(CardOperation::Disable { name }) => {
+            println!("{} Disabling card {}", "🔌".blue(), name.bright_green());
+            card_manager.disable_card(name)?;
+            println!("{} Card disabled successfully", "✅".green());
         },
-        Some(PluginOperation::Execute { name, command, args }) => {
-            println!("{} Executing command {} for plugin {} with args: {:?}", "🔌".blue(), command.bright_white(), name.bright_green(), args);
-            plugin_manager.execute_command(name, command, args)?;
+        Some(CardOperation::Run { name, command, args }) => {
+            println!("{} Running command {} for card {} with args: {:?}", "🔌".blue(), command.bright_white(), name.bright_green(), args);
+            card_manager.execute_command(name, command, args)?;
             println!("{} Command executed successfully", "✅".green());
         },
+        Some(CardOperation::Create { name, description }) => {
+            println!("{} Creating local card {}", "🔌".blue(), name.bright_green());
+            
+            // Check if the name contains only valid characters
+            if !name.chars().all(|c| c.is_alphanumeric() || c == '_' || c == '-') {
+                println!("{} Card name must contain only alphanumeric characters, underscores, or hyphens", "❌".red());
+                return Ok(());
+            }
+            
+            // Check if a card with this name already exists
+            let card_dir = wallet_dir.join(name);
+            if card_dir.exists() {
+                println!("{} A card with the name '{}' already exists", "❌".red(), name);
+                return Ok(());
+            }
+            
+            // Check for cards with similar names to avoid confusion
+            let entries = std::fs::read_dir(&wallet_dir)
+                .context("Failed to read wallet directory")?;
+            
+            let similar_cards: Vec<String> = entries
+                .filter_map(Result::ok)
+                .filter(|entry| {
+                    if let Some(file_name) = entry.file_name().to_str() {
+                        // Check if names are similar (e.g., "format" and "formatter")
+                        file_name.contains(name) || name.contains(file_name)
+                    } else {
+                        false
+                    }
+                })
+                .map(|entry| entry.file_name().to_string_lossy().to_string())
+                .collect();
+            
+            if !similar_cards.is_empty() {
+                println!("{} Warning: Found cards with similar names:", "⚠️".yellow());
+                for card in &similar_cards {
+                    println!("  - {}", card);
+                }
+                println!("This might cause confusion. Do you want to continue? (y/N)");
+                
+                let mut input = String::new();
+                std::io::stdin().read_line(&mut input)
+                    .context("Failed to read user input")?;
+                
+                if !input.trim().eq_ignore_ascii_case("y") {
+                    println!("{} Card creation cancelled", "❌".red());
+                    return Ok(());
+                }
+            }
+            
+            // Create the card directory structure
+            std::fs::create_dir_all(&card_dir)
+                .context("Failed to create card directory")?;
+            std::fs::create_dir_all(card_dir.join("src"))
+                .context("Failed to create card src directory")?;
+            
+            // Create card.toml
+            let card_toml = format!(
+                r#"[card]
+name = "{}"
+version = "0.1.0"
+description = "{}"
+author = ""
+
+[dependencies]
+# Add your dependencies here
+# Example: serde = {{ version = "1.0", features = ["derive"] }}
+"#,
+                name,
+                description
+            );
+            
+            std::fs::write(card_dir.join("card.toml"), card_toml)
+                .context("Failed to write card.toml")?;
+            
+            // Create Cargo.toml
+            let cargo_toml = format!(
+                r#"[package]
+name = "pocket-card-{}"
+version = "0.1.0"
+edition = "2021"
+description = "{}"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+anyhow = "1.0"
+serde = {{ version = "1.0", features = ["derive"] }}
+serde_json = "1.0"
+# Add your dependencies here
+"#,
+                name,
+                description
+            );
+            
+            std::fs::write(card_dir.join("Cargo.toml"), cargo_toml)
+                .context("Failed to write Cargo.toml")?;
+            
+            // Create lib.rs with template code
+            let lib_rs = r#"use anyhow::Result;
+use serde::{Serialize, Deserialize};
+use std::collections::HashMap;
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CardConfig {
+    pub name: String,
+    pub enabled: bool,
+    pub options: HashMap<String, serde_json::Value>,
+}
+
+#[derive(Debug, Clone)]
+pub struct CardCommand {
+    pub name: String,
+    pub description: String,
+    pub usage: String,
+}
+
+pub struct Card {
+    name: String,
+    version: String,
+    description: String,
+    config: CardConfig,
+}
+
+impl Card {
+    pub fn new() -> Self {
+        Self {
+            name: env!("CARGO_PKG_NAME").replace("pocket-card-", ""),
+            version: env!("CARGO_PKG_VERSION").to_string(),
+            description: env!("CARGO_PKG_DESCRIPTION").to_string(),
+            config: CardConfig {
+                name: env!("CARGO_PKG_NAME").replace("pocket-card-", ""),
+                enabled: true,
+                options: HashMap::new(),
+            },
+        }
+    }
+    
+    pub fn name(&self) -> &str {
+        &self.name
+    }
+    
+    pub fn version(&self) -> &str {
+        &self.version
+    }
+    
+    pub fn description(&self) -> &str {
+        &self.description
+    }
+    
+    pub fn initialize(&mut self, config: &CardConfig) -> Result<()> {
+        self.config = config.clone();
+        Ok(())
+    }
+    
+    pub fn execute(&self, command: &str, args: &[String]) -> Result<()> {
+        match command {
+            "hello" => {
+                println!("Hello from {}!", self.name);
+                println!("Arguments: {:?}", args);
+                Ok(())
+            },
+            _ => anyhow::bail!("Unknown command: {}", command),
+        }
+    }
+    
+    pub fn commands(&self) -> Vec<CardCommand> {
+        vec![
+            CardCommand {
+                name: "hello".to_string(),
+                description: "A simple hello command".to_string(),
+                usage: format!("pocket cards run {} hello [args...]", self.name),
+            },
+        ]
+    }
+    
+    pub fn cleanup(&mut self) -> Result<()> {
+        // Clean up any resources
+        Ok(())
+    }
+}
+
+// Export the card creation function
+#[no_mangle]
+pub extern "C" fn create_card() -> Box<dyn std::any::Any> {
+    Box::new(Card::new())
+}
+"#;
+            
+            std::fs::write(card_dir.join("src").join("lib.rs"), lib_rs)
+                .context("Failed to write lib.rs")?;
+            
+            // Create a README.md
+            let readme = format!(
+                r#"# {}
+
+{}
+
+## Installation
+
+This card is installed locally in your Pocket CLI wallet directory.
+
+## Usage
+
+```
+pocket cards run {} hello
+```
+
+## Commands
+
+- `hello`: A simple hello command
+
+## Development
+
+Edit the `src/lib.rs` file to add your own commands and functionality.
+"#,
+                name,
+                description,
+                name
+            );
+            
+            std::fs::write(card_dir.join("README.md"), readme)
+                .context("Failed to write README.md")?;
+            
+            // Register the card in the configuration
+            card_manager.register_card_config(name, "local")?;
+            
+            println!("{} Card created successfully at:", "✅".green());
+            println!("  {}", card_dir.display());
+            println!("\nTo edit the card, open your code editor at this location.");
+            println!("Basic card structure has been created with a template implementation.");
+            println!("After editing, build the card with: pocket cards build {}", name);
+        },
+        Some(CardOperation::Build { name, release }) => {
+            println!("{} Building card {}", "🔌".blue(), name.bright_green());
+            
+            // Check if the card exists
+            if !card_manager.card_exists(name) {
+                println!("{} Card '{}' not found", "❌".red(), name);
+                return Ok(());
+            }
+            
+            // Build the card
+            let build_result = std::process::Command::new("cargo")
+                .args(&["build", "--release"])
+                .current_dir(wallet_dir.join(name))
+                .status()
+                .context("Failed to execute cargo build command")?;
+            
+            if !build_result.success() {
+                println!("{} Build failed", "❌".red());
+                return Ok(());
+            }
+            
+            println!("{} Card built successfully", "✅".green());
+        },
         None => {
-            // If no operation is specified, list all plugins
-            println!("{} Available plugins:", "🔌".blue());
-            let plugins = plugin_manager.list_plugins();
-            if plugins.is_empty() {
-                println!("  No plugins installed");
+            // If no operation is specified, list all cards
+            println!("{} Available cards:", "🔌".blue());
+            let cards = card_manager.list_cards();
+            if cards.is_empty() {
+                println!("  No cards installed");
             } else {
-                for (name, version, enabled) in plugins {
+                for (name, version, enabled) in cards {
                     let status = if enabled { "enabled".green() } else { "disabled".red() };
                     println!("  {} (v{}) - {}", name.bright_green(), version, status);
                 }
             }
+        }
+    }
+    
+    Ok(())
+}
+
+// Helper function to recursively copy a directory
+fn copy_dir_all(src: impl AsRef<std::path::Path>, dst: impl AsRef<std::path::Path>) -> Result<()> {
+    let src = src.as_ref();
+    let dst = dst.as_ref();
+    std::fs::create_dir_all(dst)?;
+    
+    for entry in std::fs::read_dir(src)? {
+        let entry = entry?;
+        let ty = entry.file_type()?;
+        let src_path = entry.path();
+        let dst_path = dst.join(entry.file_name());
+        
+        if ty.is_dir() {
+            copy_dir_all(&src_path, &dst_path)?;
+        } else {
+            std::fs::copy(&src_path, &dst_path)?;
         }
     }
     
