@@ -59,4 +59,4 @@ For example:
 - `v-pocket-R2-nc`: Second stable release, not compatible with previous versions
 - `v-pocket-R3-nc1<`: Third stable release, only compatible with version 1 and newer
 
-Current version: `v-pocket-R2B1` (Enhanced Editor) 
+Current: `v-pocket-R3A2-ncR3A1<`
