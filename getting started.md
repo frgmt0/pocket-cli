@@ -54,6 +54,67 @@ pocket lint                          # List available workflows
 pocket version                       # Show version information
 ```
 
+## Using Plugins
+
+Pocket supports a plugin system that extends its functionality. Plugins add new commands and features to help you manage your snippets more effectively.
+
+### Managing Plugins
+
+```bash
+# List all available plugins
+pocket plugins list
+
+# Enable a plugin
+pocket plugins enable <plugin-name>
+
+# Disable a plugin
+pocket plugins disable <plugin-name>
+```
+
+### Backup Plugin
+
+The backup plugin helps you create, manage, and restore backups of your snippets and repositories.
+
+```bash
+# Create a backup with an optional description
+pocket backup [description]
+
+# List all available backups
+pocket backup list
+
+# Restore a backup
+pocket backup restore <backup-id>
+
+# Delete a backup
+pocket backup delete <backup-id>
+```
+
+#### Example Backup Workflow
+
+1. Create a regular backup before making significant changes:
+   ```bash
+   pocket backup "Before reorganizing my JavaScript snippets"
+   ```
+
+2. View your available backups:
+   ```bash
+   pocket backup list
+   ```
+   This will show a list of backups with their IDs, descriptions, creation dates, and content statistics.
+
+3. If something goes wrong, restore from a backup:
+   ```bash
+   pocket backup restore backup_20230615_123045
+   ```
+   This will restore your snippets and repositories to the state they were in when the backup was created.
+
+4. Clean up old backups you no longer need:
+   ```bash
+   pocket backup delete backup_20230101_090000
+   ```
+
+By default, the backup plugin automatically maintains a limited number of backups, keeping only the most recent ones to save disk space.
+
 For example:
 - `v-pocket-A1`: First alpha release
 - `v-pocket-R2-nc`: Second stable release, not compatible with previous versions
