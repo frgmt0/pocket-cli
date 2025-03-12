@@ -1,239 +1,250 @@
-//! Timeline graph visualization for Pocket VCS
-//!
-//! Provides functionality to generate a visual representation of the timeline history.
+//! Graph visualization for Pocket VCS
+//! 
+//! This module provides functionality to generate a visual representation
+//! of the repository's timeline history.
 
 use std::path::Path;
 use std::collections::{HashMap, HashSet};
 use anyhow::{Result, anyhow};
-use colored::Colorize;
+use owo_colors::OwoColorize;
 
 use crate::vcs::{Repository, Timeline, Shove, ShoveId};
 
 /// Represents a node in the timeline graph
+#[derive(Debug)]
 struct GraphNode {
-    /// The shove ID
+    /// The ID of the shove (commit)
     id: ShoveId,
-    /// The shove message (first line)
+    /// The commit message
     message: String,
-    /// Parent shove IDs
+    /// IDs of parent nodes
     parents: Vec<ShoveId>,
-    /// Child shove IDs
+    /// IDs of child nodes
     children: Vec<ShoveId>,
-    /// The timeline(s) this node belongs to
+    /// Timelines that include this node
     timelines: Vec<String>,
 }
 
-/// Represents the timeline graph
-pub struct Graph {
-    /// All nodes in the graph
+/// Represents the entire graph structure
+#[derive(Debug)]
+struct Graph {
+    /// All nodes in the graph, indexed by ID
     nodes: HashMap<ShoveId, GraphNode>,
-    /// Root nodes (shoves with no parents)
+    /// Root nodes (nodes with no parents)
     roots: Vec<ShoveId>,
-    /// Leaf nodes (shoves with no children)
+    /// Leaf nodes (nodes with no children)
     leaves: Vec<ShoveId>,
-    /// All timelines in the graph
+    /// All timelines in the repository
     timelines: HashMap<String, ShoveId>,
 }
 
 impl Graph {
-    /// Create a new graph from a repository
-    pub fn new(repo: &Repository) -> Result<Self> {
+    /// Creates a new graph from the repository
+    /// 
+    /// # Arguments
+    /// 
+    /// * `repo` - The repository to generate the graph from
+    /// 
+    /// # Returns
+    /// 
+    /// A new Graph instance with all nodes and relationships loaded
+    fn new(repo: &Repository) -> anyhow::Result<Self> {
         let mut nodes = HashMap::new();
         let mut roots = Vec::new();
-        let mut leaves = HashSet::new();
+        let mut leaves = Vec::new();
         let mut timelines = HashMap::new();
         
         // Load all timelines
-        let timelines_dir = repo.path.join(".pocket").join("timelines");
-        for entry in std::fs::read_dir(timelines_dir)? {
-            let entry = entry?;
-            if entry.file_type()?.is_file() {
-                let filename = entry.file_name();
-                let filename_str = filename.to_string_lossy();
-                if filename_str.ends_with(".toml") {
-                    let timeline_name = filename_str.trim_end_matches(".toml").to_string();
-                    let timeline_path = entry.path();
-                    let timeline = Timeline::load(&timeline_path)?;
-                    
-                    if let Some(head) = timeline.head {
-                        timelines.insert(timeline_name, head);
-                    }
-                }
-            }
+        for timeline_entry in repo.list_timelines()? {
+            let timeline = repo.load_timeline(&timeline_entry.name)?;
+            timelines.insert(timeline_entry.name.clone(), timeline.head.clone());
         }
         
-        // Load all shoves
-        let shoves_dir = repo.path.join(".pocket").join("shoves");
-        for entry in std::fs::read_dir(shoves_dir)? {
-            let entry = entry?;
-            if entry.file_type()?.is_file() {
-                let filename = entry.file_name();
-                let filename_str = filename.to_string_lossy();
-                if filename_str.ends_with(".toml") {
-                    let shove_path = entry.path();
-                    let shove = Shove::load(&shove_path)?;
+        // Load all shoves and create nodes
+        for timeline_name in timelines.keys() {
+            let mut current_id = timelines.get(timeline_name).unwrap().clone();
+            let mut visited = HashSet::new();
+            
+            while !visited.contains(&current_id) {
+                visited.insert(current_id.clone());
+                
+                if !nodes.contains_key(&current_id) {
+                    let shove = repo.load_shove(&current_id)?;
                     
-                    // Create a graph node
-                    let message = shove.message.lines().next().unwrap_or("").to_string();
                     let node = GraphNode {
-                        id: shove.id.clone(),
-                        message,
-                        parents: shove.parent_ids.clone(),
+                        id: current_id.clone(),
+                        message: shove.message.clone(),
+                        parents: shove.parents.clone(),
                         children: Vec::new(),
-                        timelines: Vec::new(),
+                        timelines: vec![timeline_name.clone()],
                     };
                     
-                    // Add to nodes
-                    nodes.insert(shove.id.clone(), node);
+                    nodes.insert(current_id.clone(), node);
                     
-                    // If no parents, it's a root
-                    if shove.parent_ids.is_empty() {
-                        roots.push(shove.id.clone());
+                    if shove.parents.is_empty() {
+                        roots.push(current_id.clone());
                     }
-                    
-                    // Initially, consider all nodes as leaves
-                    leaves.insert(shove.id.clone());
+                } else {
+                    // Add this timeline to the node's timelines
+                    if let Some(node) = nodes.get_mut(&current_id) {
+                        if !node.timelines.contains(timeline_name) {
+                            node.timelines.push(timeline_name.clone());
+                        }
+                    }
                 }
+                
+                // Move to parent
+                let node = nodes.get(&current_id).unwrap();
+                if node.parents.is_empty() {
+                    break;
+                }
+                
+                current_id = node.parents[0].clone();
             }
         }
         
-        // Build parent-child relationships
-        // First, collect all the child-parent relationships
+        // Build child relationships
         let mut child_parent_relations = Vec::new();
         for (id, node) in &nodes {
             for parent_id in &node.parents {
-                child_parent_relations.push((id.clone(), parent_id.clone()));
-                // Remove parent from leaves
-                leaves.remove(parent_id);
+                child_parent_relations.push((parent_id.clone(), id.clone()));
             }
         }
         
-        // Now update the children field for each parent
-        for (child_id, parent_id) in child_parent_relations {
+        // Update children for each parent
+        for (parent_id, child_id) in child_parent_relations {
             if let Some(parent) = nodes.get_mut(&parent_id) {
                 parent.children.push(child_id);
             }
         }
         
-        // Assign timelines to nodes
-        for (timeline_name, head_id) in &timelines {
-            if let Some(node) = nodes.get_mut(head_id) {
-                node.timelines.push(timeline_name.clone());
-            }
-            
-            // Traverse up the graph to mark all ancestors
-            let mut current = head_id.clone();
-            let mut visited = HashSet::new();
-            visited.insert(current.clone());
-            
-            while let Some(node) = nodes.get(&current) {
-                if node.parents.is_empty() {
-                    break;
-                }
-                
-                // Move to the first parent
-                if let Some(parent_id) = node.parents.first() {
-                    current = parent_id.clone();
-                    
-                    // Avoid cycles
-                    if visited.contains(&current) {
-                        break;
-                    }
-                    visited.insert(current.clone());
-                    
-                    // Mark this node as part of the timeline
-                    if let Some(parent_node) = nodes.get_mut(&current) {
-                        if !parent_node.timelines.contains(timeline_name) {
-                            parent_node.timelines.push(timeline_name.clone());
-                        }
-                    }
-                } else {
-                    break;
-                }
+        // Find leaf nodes (nodes with no children)
+        for (id, node) in &nodes {
+            if node.children.is_empty() {
+                leaves.push(id.clone());
             }
         }
         
         Ok(Self {
             nodes,
             roots,
-            leaves: leaves.into_iter().collect(),
+            leaves,
             timelines,
         })
     }
     
-    /// Generate a visual representation of the graph
-    pub fn visualize(&self) -> Vec<String> {
+    /// Generates a visual representation of the graph
+    /// 
+    /// # Returns
+    /// 
+    /// A vector of strings representing the graph visualization
+    fn visualize(&self) -> Vec<String> {
         let mut lines = Vec::new();
         
-        // Sort timelines alphabetically
-        let mut timeline_names: Vec<String> = self.timelines.keys().cloned().collect();
-        timeline_names.sort();
+        if self.nodes.is_empty() {
+            return vec!["No commits found in repository.".to_string()];
+        }
         
         // Display timeline heads
-        for timeline_name in &timeline_names {
-            if let Some(head_id) = self.timelines.get(timeline_name) {
-                if let Some(node) = self.nodes.get(head_id) {
-                    lines.push(format!("  🌿 {}", timeline_name.bright_green()));
-                    lines.push(format!("  ├── 📌 {} {}", 
+        lines.push("Timeline Heads:".to_string());
+        for (timeline_name, head_id) in &self.timelines {
+            if let Some(node) = self.nodes.get(head_id) {
+                lines.push(format!("  🌿 {}", timeline_name.bright_green()));
+                lines.push(format!("     └── {} {}", 
                         head_id.as_str()[0..8].bright_yellow(), 
                         node.message.bright_white()));
-                    
-                    // Traverse the graph
-                    self.visualize_node(head_id, &mut lines, "  │   ", &HashSet::new());
-                }
             }
+        }
+        
+        lines.push("\nCommit Graph:".to_string());
+        
+        // Start from roots and traverse
+        let mut visited = HashSet::new();
+        for root_id in &self.roots {
+            self.traverse_node(root_id, "", &mut lines, &mut visited, true);
         }
         
         lines
     }
     
-    /// Recursively visualize a node and its ancestors
-    fn visualize_node(&self, id: &ShoveId, lines: &mut Vec<String>, prefix: &str, visited: &HashSet<ShoveId>) -> HashSet<ShoveId> {
-        let mut new_visited = visited.clone();
-        new_visited.insert(id.clone());
-        
-        if let Some(node) = self.nodes.get(id) {
-            // Process parents
-            for (i, parent_id) in node.parents.iter().enumerate() {
-                if visited.contains(parent_id) {
-                    continue;
-                }
-                
-                if let Some(parent) = self.nodes.get(parent_id) {
-                    let is_last = i == node.parents.len() - 1;
-                    let new_prefix = if is_last {
-                        prefix.replace("├", "└")
-                    } else {
-                        prefix.to_string()
-                    };
-                    
-                    lines.push(format!("{} 📌 {} {}", 
-                        new_prefix,
-                        parent_id.as_str()[0..8].bright_yellow(), 
-                        parent.message.bright_white()));
-                    
-                    // Continue with parent's parents
-                    let next_prefix = if is_last {
-                        prefix.replace("├", " ")
-                    } else {
-                        prefix.to_string()
-                    };
-                    
-                    let parent_visited = self.visualize_node(parent_id, lines, &next_prefix, &new_visited);
-                    for id in parent_visited {
-                        new_visited.insert(id);
-                    }
-                }
-            }
+    /// Recursively traverses the graph to generate visualization
+    /// 
+    /// # Arguments
+    /// 
+    /// * `node_id` - The ID of the current node
+    /// * `prefix` - The prefix to use for this line (for indentation)
+    /// * `lines` - The vector to add lines to
+    /// * `visited` - Set of already visited nodes to prevent cycles
+    /// * `is_last` - Whether this is the last child of its parent
+    fn traverse_node(&self, node_id: &ShoveId, prefix: &str, lines: &mut Vec<String>, visited: &mut HashSet<ShoveId>, is_last: bool) {
+        if visited.contains(node_id) {
+            return;
         }
         
-        new_visited
+        visited.insert(node_id.clone());
+        
+        let node = match self.nodes.get(node_id) {
+            Some(n) => n,
+            None => return,
+        };
+        
+        // Generate the line for this node
+        let branch_symbol = if is_last { "└── " } else { "├── " };
+        let timeline_indicators = if !node.timelines.is_empty() {
+            format!("[{}] ", node.timelines.join(", "))
+        } else {
+            "".to_string()
+        };
+        
+        lines.push(format!("{}{}{}{} {}", 
+            prefix, 
+            branch_symbol, 
+            timeline_indicators,
+            node_id.as_str()[0..8].bright_yellow(), 
+            node.message.bright_white()));
+        
+        // Generate lines for children
+        let child_prefix = if is_last {
+            format!("{}    ", prefix)
+        } else {
+            format!("{}│   ", prefix)
+        };
+        
+        let children = &node.children;
+        for (i, child_id) in children.iter().enumerate() {
+            let is_last_child = i == children.len() - 1;
+            self.traverse_node(child_id, &child_prefix, lines, visited, is_last_child);
+        }
+        
+        // If this node has parents that haven't been visited, show them too
+        for (i, parent_id) in node.parents.iter().enumerate() {
+            if !visited.contains(parent_id) {
+                let parent = match self.nodes.get(parent_id) {
+                    Some(p) => p,
+                    None => continue,
+                };
+                
+                let is_last_parent = i == node.parents.len() - 1;
+                lines.push(format!("{}    ↑ {} {}", 
+                    prefix,
+                    parent_id.as_str()[0..8].bright_yellow(), 
+                    parent.message.bright_white()));
+            }
+        }
     }
 }
 
-/// Generate a visual graph of the timeline history
-pub fn generate_graph(path: &Path) -> Result<Vec<String>> {
-    let repo = Repository::open(path)?;
+/// Generates a graph visualization for the repository
+/// 
+/// # Arguments
+/// 
+/// * `repo_path` - Path to the repository
+/// 
+/// # Returns
+/// 
+/// A vector of strings representing the graph visualization
+pub fn generate_graph(repo_path: &Path) -> anyhow::Result<Vec<String>> {
+    let repo = Repository::open(repo_path)?;
     let graph = Graph::new(&repo)?;
     Ok(graph.visualize())
 } 
