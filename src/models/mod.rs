@@ -1,7 +1,6 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
-use std::path::PathBuf;
 use anyhow::Result;
 
 /// Represents an entry in the pocket storage

@@ -6,13 +6,12 @@ use std::path::{Path, PathBuf};
 use anyhow::{Result, anyhow};
 use colored::Colorize;
 use glob;
-use std::io::{self, Write};
 use dialoguer::{theme::ColorfulTheme, Select, Input, Confirm};
 use indicatif::{ProgressBar, ProgressStyle};
 
 use crate::vcs::{
     Repository, Timeline, Shove, ShoveId, Pile,
-    ObjectStore, MergeResult, MergeStrategy
+    ObjectStore, MergeStrategy
 };
 use crate::vcs::remote::RemoteManager;
 

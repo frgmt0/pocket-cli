@@ -6,7 +6,7 @@ use std::path::{Path, PathBuf};
 use std::fs;
 use chrono::{DateTime, Utc};
 use serde::{Serialize, Deserialize};
-use anyhow::{Result, anyhow};
+use anyhow::Result;
 use uuid::Uuid;
 use std::collections::HashMap;
 

@@ -2,7 +2,7 @@
 //!
 //! Handles interaction with remote repositories.
 
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::collections::HashMap;
 use serde::{Serialize, Deserialize};
 use anyhow::{Result, anyhow};

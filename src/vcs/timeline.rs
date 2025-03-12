@@ -2,10 +2,10 @@
 //!
 //! Handles the creation and management of timelines (branches).
 
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::fs;
 use serde::{Serialize, Deserialize};
-use anyhow::{Result, anyhow};
+use anyhow::Result;
 use thiserror::Error;
 
 use crate::vcs::ShoveId;

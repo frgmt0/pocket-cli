@@ -15,20 +15,17 @@ pub mod remote;
 pub mod commands;
 
 // Re-export the main types for easier access
-pub use repository::{Repository, RepositoryError};
+pub use repository::Repository;
 pub use pile::{Pile, PileEntry, PileStatus};
 pub use shove::{Shove, ShoveId, Author};
-pub use timeline::{Timeline, TimelineError};
+pub use timeline::Timeline;
 pub use objects::{ObjectStore, ObjectId, Tree, TreeEntry};
-pub use diff::{Diff, DiffResult, DiffOptions};
-pub use merge::{MergeResult, MergeStrategy, ConflictResolution};
-pub use remote::{Remote, RemoteError, RemoteTracking};
+pub use merge::{MergeResult, MergeStrategy};
 
 // Common types used throughout the VCS module
-use std::path::{Path, PathBuf};
-use chrono::{DateTime, Utc};
+use std::path::PathBuf;
 use thiserror::Error;
-use anyhow::{Result, anyhow};
+use anyhow::Result;
 
 /// Common error types for VCS operations
 #[derive(Error, Debug)]
@@ -97,13 +94,6 @@ pub fn init() -> Result<()> {
     Ok(())
 }
 
-pub use commands::{
-    status_command, pile_command, unpile_command, shove_command,
-    log_command, timeline_new_command, timeline_switch_command,
-    timeline_list_command, merge_command, remote_add_command,
-    remote_remove_command, remote_list_command, push_command,
-    ignore_command
-};
 
 #[cfg(test)]
 mod tests {

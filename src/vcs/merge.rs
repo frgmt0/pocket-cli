@@ -2,9 +2,8 @@
 //!
 //! Handles merging changes between timelines.
 
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::collections::HashMap;
-use serde::{Serialize, Deserialize};
 use anyhow::{Result, anyhow};
 use std::fs;
 use toml;
@@ -13,7 +12,7 @@ use colored::Colorize;
 
 use crate::vcs::{
     ShoveId, ObjectId, ObjectStore, Tree, TreeEntry,
-    Repository, Timeline, Shove, FileChange, ChangeType, Author
+    Repository, Timeline, Shove, Author
 };
 use crate::vcs::objects::{EntryType};
 
@@ -194,7 +193,7 @@ impl<'a> Merger<'a> {
         
         // Otherwise, find the most recent common ancestor
         // Start with all ancestors of A
-        let mut a_ancestors = self.get_ancestors(a)?;
+        let a_ancestors = self.get_ancestors(a)?;
         
         // For each ancestor of B, check if it's also an ancestor of A
         for b_ancestor in self.get_ancestors(b)? {

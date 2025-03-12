@@ -1,10 +1,8 @@
 use crate::models::{Entry, Backpack, Config, ContentType, Workflow};
 use anyhow::{Result, Context, anyhow};
-use chrono::Utc;
 use dirs::home_dir;
 use serde_json;
-use std::fs::{self, File, create_dir_all};
-use std::io::{Read, Write};
+use std::fs::{self, create_dir_all};
 use std::path::{Path, PathBuf};
 
 /// Storage manager for pocket data

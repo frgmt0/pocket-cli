@@ -4,8 +4,6 @@
 
 use std::path::{Path, PathBuf};
 use std::fs;
-use std::io;
-use std::collections::HashMap;
 use serde::{Serialize, Deserialize};
 use anyhow::{Result, anyhow};
 use sha2::{Sha256, Digest};

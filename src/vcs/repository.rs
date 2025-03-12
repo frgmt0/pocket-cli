@@ -4,17 +4,16 @@
 
 use std::path::{Path, PathBuf};
 use std::fs;
-use chrono::{DateTime, Utc};
+use chrono::Utc;
 use serde::{Serialize, Deserialize};
 use anyhow::{Result, anyhow};
 use thiserror::Error;
-use hostname;
 use walkdir;
 use glob;
 
 use crate::vcs::{
-    ObjectId, ObjectStore, ShoveId, VcsError,
-    RepoStatus, PileEntry,
+    ObjectId, ObjectStore, ShoveId,
+    RepoStatus,
     objects::{Tree, TreeEntry, EntryType},
     shove::Shove,
     Author,

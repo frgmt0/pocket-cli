@@ -3,7 +3,6 @@
 //! Handles the calculation and representation of differences between files.
 
 use std::path::{Path, PathBuf};
-use serde::{Serialize, Deserialize};
 use anyhow::Result;
 
 use crate::vcs::{ObjectId, ObjectStore};
