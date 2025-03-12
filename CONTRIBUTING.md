@@ -7,6 +7,58 @@ First off, the fact that you're reading a CONTRIBUTING.md file means you're alre
 
 Contributing to Pocket isn't just about writing code that works—it's about creating a tool that makes developers' lives less frustrating. Because let's be honest, we all have enough existential dread without also having to rewrite the same RegEx pattern for the fifth time this year.
 
+## Design Philosophy
+
+Pocket is built around several core design principles that should guide all contributions:
+
+### 1. Simplicity Over Complexity
+
+Pocket should be intuitive and easy to use, even for developers who are new to the tool. This means:
+- Commands should follow predictable patterns
+- Features should be discoverable
+- Documentation should be clear and accessible
+- Complex functionality should have sensible defaults
+
+### 2. Adaptability Over Rigidity
+
+Pocket adapts to how developers actually work, not the other way around:
+- Support various workflows without forcing a specific one
+- Allow for different organizational styles
+- Provide flexibility in how snippets are categorized and retrieved
+- Enable customization through the Cards system
+
+### 3. Utility Over Novelty
+
+Every feature should solve a real problem that developers face:
+- Focus on practical use cases over theoretical ones
+- Prioritize features that save time and reduce cognitive load
+- Avoid adding features just because they're technically interesting
+- Consider the long-term maintenance cost of new features
+
+### 4. Consistency in Design
+
+Pocket maintains a consistent design language throughout:
+- Terminology is consistent across features (e.g., "Cards" for plugins, "Backpacks" for collections)
+- Command structure follows predictable patterns
+- Error messages are helpful and actionable
+- Visual styling (colors, formatting) is consistent in CLI output
+
+### 5. Progressive Disclosure
+
+Simple operations should be simple, while advanced features are available when needed:
+- Basic commands should work with minimal arguments
+- Advanced options should be discoverable but not required
+- Help text should guide users to related commands
+- Complex workflows can be automated through the workflow system
+
+### 6. Thoughtful Defaults
+
+Pocket should work well out of the box:
+- Sensible default configurations
+- Automatic organization where possible
+- Smart search that understands developer intent
+- Minimal setup required for basic usage
+
 ## The Philosophy Behind Pocket
 
 Pocket exists because developers shouldn't have to choose between maintaining an elaborate organizational system that requires more upkeep than a vintage car or randomly scattering useful code across Slack messages, GitHub gists, and hastily-named text files.
@@ -116,14 +168,66 @@ When receiving feedback:
 - Ask questions if something isn't clear
 - Remember that every suggestion is aimed at making the project better, not criticizing your abilities
 
-## Extension Development
+## Card Development
 
-Pocket's extension system is where the real magic happens. When creating extensions:
+Pocket's Card system (formerly known as plugins) allows for extending functionality. When developing Cards:
 
 1. **Do One Thing Well**: The Unix philosophy never goes out of style
 2. **Document Extensively**: Assume users haven't read any other documentation
-3. **Error Handling**: Users will find ways to break your extension you never imagined
+3. **Error Handling**: Users will find ways to break your Card you never imagined
 4. **Dependencies**: Keep them minimal and well-justified
+
+For detailed information on developing Cards, see the [Card Development Guide](docs/card-development-guide.md).
+
+## Version Control System
+
+Pocket includes a built-in version control system. When contributing to this system:
+
+1. **Keep It Simple**: The VCS should be intuitive, especially for users who find Git confusing
+2. **Consistent Terminology**: Use the established terms (Pile, Shove, Timeline) consistently
+3. **Error Messages**: Provide clear guidance when something goes wrong
+4. **Performance**: Consider the performance implications of VCS operations
+
+For more details, see the [Version Control System documentation](docs/version-control.md).
+
+## Project Structure
+
+```
+pocket/
+├── .github/            # GitHub configuration files
+├── docs/               # Documentation
+│   ├── cards.md        # Cards system documentation
+│   ├── card-development-guide.md # Guide for developing Cards
+│   ├── commands.md     # Command reference
+│   ├── installation.md # Installation guide
+│   └── version-control.md # Version control system documentation
+├── src/                # Source code
+│   ├── cards/          # Cards (plugin) system
+│   ├── commands/       # Command implementations
+│   ├── models/         # Data models
+│   ├── search/         # Search functionality
+│   ├── storage/        # Storage management
+│   ├── utils/          # Utility functions
+│   ├── vcs/            # Version control system
+│   ├── version.rs      # Version information
+│   └── main.rs         # Entry point
+├── Cargo.toml          # Project configuration
+└── README.md           # Project documentation
+```
+
+## Versioning
+
+Pocket uses a combination of semantic versioning and a letter-based system:
+
+- SemVer format: `0.6.2` (for Cargo and the Rust ecosystem)
+- Letter format: `v-pocket-R3B1-ncR2<` (for human communication)
+- Date format: `03252025` (for internal tracking)
+
+When making changes:
+- Increment the patch version for bug fixes
+- Increment the minor version for new features
+- Increment the major version for breaking changes
+- Update the letter-based version and date in `src/version.rs`
 
 ## In Conclusion
 

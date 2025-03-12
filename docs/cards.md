@@ -99,4 +99,4 @@ card_name/
     └── lib.rs
 ```
 
-For more detailed information on developing cards, see the [Card Development Guide](https://github.com/frgmt0/pocket/wiki/Card-Development-Guide). 
+For more detailed information on developing cards, see the [Card Development Guide](card-development-guide.md). 
