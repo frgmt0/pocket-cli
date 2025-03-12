@@ -4,13 +4,13 @@
 /// and our letter-based versioning system that prioritizes communication
 
 /// The current version in letter-based format
-pub const VERSION_LETTER: &str = "v-pocket-R2B2-nc";
+pub const VERSION_LETTER: &str = "v-pocket-R3A1-nc";
 
 /// The current version as a date string (MMDDYYYY) - for internal tracking
-pub const VERSION_DATE: &str = "03122025";
+pub const VERSION_DATE: &str = "03152025";
 
 /// The current version as a human-readable string
-pub const VERSION_STRING: &str = "Pocket v-pocket-R2B2-nc (03122025 - Script Execution)";
+pub const VERSION_STRING: &str = "Pocket v-pocket-R3A1-nc (03152025 - Version Control System)";
 
 /// Compatibility information
 pub const COMPATIBILITY: Option<&str> = Some("Not compatible with previous versions");
@@ -36,9 +36,9 @@ pub fn get_version() -> Version {
         letter: VERSION_LETTER,
         date: VERSION_DATE,
         semver: env!("CARGO_PKG_VERSION"),
-        name: "Script Execution",
+        name: "Version Control System",
         compatibility: COMPATIBILITY,
-        stability: Stability::Beta,
+        stability: Stability::Alpha,
     }
 }
 

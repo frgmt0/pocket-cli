@@ -2,6 +2,65 @@
 
 All notable changes to Pocket will be documented in this file using our letter-based versioning system.
 
+## v-pocket-R2A3-ncR3A1< (03212025 - Enhanced Version Control Features)
+
+### Added
+- Implemented proper graph command for visualizing timeline history
+- Added ignore command for managing .pocketignore patterns
+- Support for .pocketignore file to exclude files from version control
+
+### Changed
+- Refactored graph visualization to show actual repository timeline structure
+- Enhanced error handling for graph and ignore commands
+
+### Fixed
+- Fixed issues with the pile command
+- Improved timeline visualization in graph command
+
+### Notes
+- This version is only compatible with R3A1 and newer
+- Enhances the VCS functionality with better visualization and ignore patterns
+
+## v-pocket-R3A2-ncR3A1< (03202025 - Version Control System Improvements)
+
+### Added
+- Fixed pile command to save to the correct location
+- Recursive directory support for pile command
+- Enhanced help text for pile command
+- Improved error handling for shove command
+
+### Changed
+- Updated pile command to handle directories recursively
+- Fixed compatibility issues with previous version
+
+### Notes
+- This version is only compatible with R3A1 and newer
+- Fixes critical issues with the pile and shove commands
+
+## v-pocket-R3A1-nc (03152025 - Version Control System)
+
+### Added
+- Integrated custom Version Control System (VCS)
+- Repository creation with `new-repo` command
+- File staging with `pile` and `unpile` commands
+- Commit functionality with `shove` command
+- Branch management with `timeline` commands
+- Repository status checking with `status` command
+- History viewing with `log` command
+- Merge functionality for timelines
+- Remote repository management
+- Improved help menu with categorized commands
+
+### Changed
+- Updated command-line interface to include VCS commands
+- Enhanced help display to separate snippet management from version control
+- Improved error handling for VCS operations
+
+### Notes
+- This is an alpha release of the VCS functionality
+- Some VCS features may not work as expected
+- The VCS implementation is still under active development
+
 ## v-pocket-R2B2-nc (03122025 - Bash Scripting Support)
 
 ### Added
@@ -94,14 +153,4 @@ Our versioning follows this format: `v-projectname-XN[-nc]`
 Where:
 - `v-projectname` identifies the project (pocket)
 - `X` is a letter indicating stability:
-  - `A` = Alpha (experimental, seeking feedback)
-  - `B` = Beta (still buggy but usable for testing)
-  - `C` = Candidate (almost ready for official release)
-  - `R` = Release (stable and ready for production)
-- `N` is a number indicating the iteration
-- `-nc` (optional) indicates compatibility issues with previous versions
-
-For example:
-- `v-pocket-A1`: First alpha release
-- `v-pocket-R2-nc`: Second stable release, not compatible with previous versions
-- `v-pocket-R3-nc1<`: Third stable release, only compatible with version 1 and newer 
+  - `

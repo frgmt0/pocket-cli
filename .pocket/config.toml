@@ -1,0 +1,14 @@
+[user]
+name = "Unknown User"
+email = "user@example.com"
+
+[core]
+default_timeline = "main"
+ignore_patterns = [
+    ".DS_Store",
+    "*.log",
+    "target/*",
+    "spec.md",
+]
+
+[remote]
