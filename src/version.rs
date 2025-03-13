@@ -4,16 +4,16 @@
 /// and our letter-based versioning system that prioritizes communication
 
 /// The current version in letter-based format
-pub const VERSION_LETTER: &str = "v-pocket-R3C-ncR2<";
+pub const VERSION_LETTER: &str = "v-pocket-R3C/B1-ncR2<";
 
 /// The current version as a date string (MMDDYYYY) - for internal tracking
-pub const VERSION_DATE: &str = "03282025";
+pub const VERSION_DATE: &str = "04012025";
 
 /// The current version as a human-readable string
-pub const VERSION_STRING: &str = "Pocket v-pocket-R3C-ncR2< (03282025 - Enhanced Search System)";
+pub const VERSION_STRING: &str = "Pocket v-pocket-R3C/B1-ncR2< (04012025 - Clipboard & Summarization)";
 
 /// Compatibility information
-pub const COMPATIBILITY: Option<&str> = Some("Compatibility only extends to basic functions of Pocket and does not include any VCS support or Card support. The package search feature is only available on R3C or higher.");
+pub const COMPATIBILITY: Option<&str> = Some("Compatibility only extends to basic functions of Pocket and does not include any VCS support or Card support. Advanced Search & Summarization is only available on C/B1. Advanced Search is available on R3C.");
 
 pub const AUTHOR: &str = "frgmt0 (j)";
 

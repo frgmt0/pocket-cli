@@ -2,6 +2,30 @@
 
 All notable changes to Pocket will be documented in this file using our letter-based versioning system.
 
+## v-pocket-R3C/B1-ncR2< (04012025 - Clipboard & Summarization)
+
+### Added
+- Integrated cross-platform clipboard support for adding content directly from clipboard
+- Added `--clipboard` flag to the `add` command
+- Implemented text summarization for long entries with two approaches:
+  - ML-based summarization using DistilBART (optional feature)
+  - Fallback rule-based extractive summarization for systems with limited resources
+- Added `--summarize` flag for manual summaries
+- Enhanced search to include summaries in search results
+- Added summary metadata to entries
+- Made summarization configurable via feature flags
+
+### Changed
+- Updated the search engine to include summaries in search results
+- Added weight to summary matches in search results
+- Improved clipboard detection and handling across platforms
+- Enhanced Entry struct with metadata support
+
+### Notes
+- Compatibility only extends to basic functions of Pocket and does not include any VCS support or Card support
+- Advanced Search & Summarization is only available on C/B1
+- Advanced Search is available on R3C
+
 ## v-pocket-R3C-ncR2< (03282025 - Enhanced Search System)
 
 ### Added

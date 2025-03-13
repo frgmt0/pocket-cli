@@ -447,7 +447,7 @@ impl SearchEngine {
 }
 
 impl SearchIndex {
-    /// Create a new search index
+    /// Create a new empty search index
     fn new() -> Self {
         Self {
             term_docs: HashMap::new(),
@@ -462,10 +462,9 @@ impl SearchIndex {
         }
     }
     
-    /// Build or rebuild the search index
-    fn build(index: Arc<RwLock<SearchIndex>>, storage: StorageManager) -> Result<()> {
-        // Create a new index
-        let mut new_index = SearchIndex::new();
+    /// Tokenize content for indexing
+    fn tokenize_content(text: &str) -> Vec<String> {
+        // Create stemmer and stopwords
         let stemmer = Stemmer::create(Algorithm::English);
         
         // Common English stopwords
@@ -478,108 +477,112 @@ impl SearchIndex {
             "his", "her", "its", "our", "not"
         ].into_iter().map(|s| s.to_string()).collect();
         
-        // Tokenize helper for text
-        let tokenize_text = |text: &str| -> Vec<String> {
-            let word_regex = Regex::new(r"\b[\w']+\b").unwrap();
-            
-            word_regex.find_iter(text.to_lowercase().as_str())
-                .map(|m| m.as_str().to_string())
-                .filter(|token| !stopwords.contains(token))
-                .map(|token| stemmer.stem(&token).to_string())
-                .collect()
-        };
+        // Tokenize the text
+        let word_regex = Regex::new(r"\b[\w']+\b").unwrap();
         
-        // Get entries from all backpacks
+        word_regex.find_iter(text.to_lowercase().as_str())
+            .map(|m| m.as_str().to_string())
+            .filter(|token| !stopwords.contains(token))
+            .map(|token| stemmer.stem(&token).to_string())
+            .collect()
+    }
+    
+    /// Build or rebuild the search index
+    fn build(index: Arc<RwLock<SearchIndex>>, storage: StorageManager) -> Result<()> {
+        let mut index_guard = index.write().unwrap();
+        
+        // Clear the index
+        index_guard.term_docs.clear();
+        index_guard.doc_backpack.clear();
+        index_guard.doc_frequencies.clear();
+        index_guard.term_frequencies.clear();
+        index_guard.doc_lengths.clear();
+        
+        // Get all entries from all backpacks
         let backpacks = storage.list_backpacks()?;
+        let mut all_entries = Vec::new();
+        
+        // Add general entries
+        for entry in storage.list_entries(None)? {
+            all_entries.push((entry, None));
+        }
+        
+        // Add backpack entries
         for backpack in backpacks {
-            let backpack_entries = storage.list_entries(Some(&backpack.name))?;
-            for entry in backpack_entries {
-                let (entry, content) = storage.load_entry(&entry.id, Some(&backpack.name))?;
-                
-                // Store document-backpack mapping
-                new_index.doc_backpack.insert(entry.id.clone(), Some(backpack.name.clone()));
-                
-                // Process content
-                let tokens = tokenize_text(&content);
-                
-                // Update document length
-                new_index.doc_lengths.insert(entry.id.clone(), tokens.len());
-                new_index.total_docs += 1;
-                
-                // Update term frequencies
-                let mut term_counts = HashMap::new();
-                for token in &tokens {
-                    *term_counts.entry(token.clone()).or_insert(0) += 1;
-                    
-                    // Update document frequency
-                    if !new_index.term_docs.contains_key(token) || 
-                       !new_index.term_docs.get(token).unwrap().contains_key(&entry.id) {
-                        *new_index.doc_frequencies.entry(token.clone()).or_insert(0) += 1;
-                    }
-                    
-                    // Add to term-document mapping
-                    new_index.term_docs
-                        .entry(token.clone())
-                        .or_insert_with(HashMap::new)
-                        .insert(entry.id.clone(), 1.0);
-                }
-                
-                // Store term frequencies for this document
-                new_index.term_frequencies.insert(entry.id.clone(), term_counts);
+            for entry in storage.list_entries(Some(&backpack.name))? {
+                all_entries.push((entry, Some(backpack.name.clone())));
             }
         }
         
-        // Also get entries from the general pocket
-        let general_entries = storage.list_entries(None)?;
-        for entry in general_entries {
-            let (entry, content) = storage.load_entry(&entry.id, None)?;
+        // Process each entry
+        let mut total_length = 0;
+        for (entry, backpack) in all_entries {
+            // Load the entry content
+            let content = match storage.load_entry_content(&entry.id, backpack.as_deref()) {
+                Ok(content) => content,
+                Err(_) => continue, // Skip entries with missing content
+            };
             
-            // Store document-backpack mapping
-            new_index.doc_backpack.insert(entry.id.clone(), None);
+            // Get summary if available
+            let mut summary_text = String::new();
+            if let Some(summary_json) = entry.get_metadata("summary") {
+                if let Ok(summary) = crate::utils::SummaryMetadata::from_json(summary_json) {
+                    summary_text = summary.summary;
+                }
+            }
             
-            // Process content
-            let tokens = tokenize_text(&content);
+            // Combine content and summary for indexing, giving summary higher weight
+            let combined_text = if !summary_text.is_empty() {
+                format!("{} {} {}", summary_text, summary_text, content) // Repeat summary to give it more weight
+            } else {
+                content.clone()
+            };
             
-            // Update document length
-            new_index.doc_lengths.insert(entry.id.clone(), tokens.len());
-            new_index.total_docs += 1;
+            // Tokenize and process the content
+            let tokens = SearchIndex::tokenize_content(&combined_text);
+            let doc_length = tokens.len();
+            total_length += doc_length;
             
-            // Update term frequencies
+            // Store document length
+            index_guard.doc_lengths.insert(entry.id.clone(), doc_length);
+            
+            // Store backpack info
+            index_guard.doc_backpack.insert(entry.id.clone(), backpack.clone());
+            
+            // Process each token
             let mut term_counts = HashMap::new();
-            for token in &tokens {
+            for token in tokens {
                 *term_counts.entry(token.clone()).or_insert(0) += 1;
                 
-                // Update document frequency
-                if !new_index.term_docs.contains_key(token) || 
-                   !new_index.term_docs.get(token).unwrap().contains_key(&entry.id) {
-                    *new_index.doc_frequencies.entry(token.clone()).or_insert(0) += 1;
-                }
-                
-                // Add to term-document mapping
-                new_index.term_docs
-                    .entry(token.clone())
-                    .or_insert_with(HashMap::new)
-                    .insert(entry.id.clone(), 1.0);
+                // Add to term-document index
+                let docs = index_guard.term_docs.entry(token.clone()).or_insert_with(HashMap::new);
+                docs.insert(entry.id.clone(), 0.0); // Score will be calculated later
             }
             
             // Store term frequencies for this document
-            new_index.term_frequencies.insert(entry.id.clone(), term_counts);
+            index_guard.term_frequencies.insert(entry.id.clone(), term_counts);
         }
         
         // Calculate average document length
-        let total_length: usize = new_index.doc_lengths.values().sum();
-        if new_index.total_docs > 0 {
-            new_index.average_doc_length = total_length as f64 / new_index.total_docs as f64;
+        if !index_guard.doc_lengths.is_empty() {
+            index_guard.average_doc_length = total_length as f64 / index_guard.doc_lengths.len() as f64;
         }
         
-        // Update last updated timestamp
-        new_index.last_updated = Instant::now();
-        new_index.needs_rebuild = false;
-        
-        // Replace the old index with the new one
-        if let Ok(mut index_write) = index.write() {
-            *index_write = new_index;
+        // Calculate document frequencies
+        let mut doc_frequencies = HashMap::new();
+        for (term, docs) in &index_guard.term_docs {
+            doc_frequencies.insert(term.clone(), docs.len());
         }
+        
+        // Update document frequencies
+        index_guard.doc_frequencies = doc_frequencies;
+        
+        // Update total document count
+        index_guard.total_docs = index_guard.doc_lengths.len();
+        
+        // Mark as updated
+        index_guard.last_updated = Instant::now();
+        index_guard.needs_rebuild = false;
         
         Ok(())
     }

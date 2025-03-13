@@ -11,6 +11,18 @@ use std::time::SystemTime;
 use crate::models::ContentType;
 use tempfile::NamedTempFile;
 
+// Add clipboard module
+pub mod clipboard;
+
+// Add summarization module
+pub mod summarization;
+
+// Re-export clipboard functions for convenience
+pub use clipboard::{read_clipboard, write_clipboard};
+
+// Re-export summarization functions for convenience
+pub use summarization::{summarize_text, SummaryMetadata};
+
 /// Read content from a file
 pub fn read_file_content(path: &Path) -> Result<String> {
     fs::read_to_string(path).map_err(|e| anyhow!("Failed to read file {}: {}", path.display(), e))

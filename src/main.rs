@@ -46,6 +46,14 @@ enum Commands {
         /// Add directly to a specific backpack
         #[arg(short, long, value_name = "NAME")]
         backpack: Option<String>,
+        
+        /// Read content from clipboard
+        #[arg(long)]
+        clipboard: bool,
+        
+        /// Provide a manual summary for the snippet
+        #[arg(long, value_name = "SUMMARY")]
+        summarize: Option<String>,
     },
 
     /// Display all pocket entries
@@ -470,8 +478,8 @@ fn main() -> Result<()> {
     }
 
     match cli.command {
-        Commands::Add { file, message, editor, backpack } => {
-            let id = commands::add_command(file, message, editor, backpack)?;
+        Commands::Add { file, message, editor, backpack, clipboard, summarize } => {
+            let id = commands::add_command(file, message, editor, backpack, Some(clipboard), summarize)?;
             println!("Entry added successfully with ID: {}", id);
         }
         Commands::List { include_backpacks, backpack, json } => {

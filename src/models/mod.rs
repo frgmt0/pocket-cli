@@ -2,6 +2,7 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 use anyhow::Result;
+use std::collections::HashMap;
 
 /// Represents an entry in the pocket storage
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -26,6 +27,10 @@ pub struct Entry {
     
     /// Type of content (code, text, etc.)
     pub content_type: ContentType,
+    
+    /// Metadata associated with the entry
+    #[serde(default)]
+    pub metadata: HashMap<String, String>,
 }
 
 /// Represents the type of content in an entry
@@ -85,7 +90,18 @@ impl Entry {
             source,
             tags,
             content_type,
+            metadata: HashMap::new(),
         }
+    }
+    
+    /// Add metadata to the entry
+    pub fn add_metadata(&mut self, key: &str, value: &str) {
+        self.metadata.insert(key.to_string(), value.to_string());
+    }
+    
+    /// Get metadata from the entry
+    pub fn get_metadata(&self, key: &str) -> Option<&str> {
+        self.metadata.get(key).map(|s| s.as_str())
     }
 }
 

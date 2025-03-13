@@ -298,4 +298,43 @@ impl StorageManager {
         workflows.sort_by(|a, b| a.name.cmp(&b.name));
         Ok(workflows)
     }
+
+    /// Search for entries by query string
+    pub fn search_entries(&self, query: &str, backpack: Option<&str>, limit: usize) -> Result<Vec<(Entry, String)>> {
+        let mut results = Vec::new();
+        
+        // Get entries to search
+        let entries = self.list_entries(backpack)?;
+        
+        // Simple case-insensitive search
+        let query_lower = query.to_lowercase();
+        
+        for entry in entries {
+            // Load the content
+            let content = match fs::read_to_string(self.get_entry_content_path(&entry.id, backpack)) {
+                Ok(content) => content,
+                Err(_) => continue, // Skip entries with missing content
+            };
+            
+            // Check if query matches title or content
+            if entry.title.to_lowercase().contains(&query_lower) || 
+               content.to_lowercase().contains(&query_lower) {
+                results.push((entry, content));
+                
+                // Check if we've reached the limit
+                if results.len() >= limit {
+                    break;
+                }
+            }
+        }
+        
+        Ok(results)
+    }
+    
+    /// Load entry content only
+    pub fn load_entry_content(&self, id: &str, backpack: Option<&str>) -> Result<String> {
+        let content_path = self.get_entry_content_path(id, backpack);
+        fs::read_to_string(&content_path)
+            .with_context(|| format!("Failed to read entry content from {}", content_path.display()))
+    }
 } 

@@ -4,6 +4,7 @@
 //! Cards can add new commands, modify existing behavior, or provide additional features.
 
 pub mod backup;
+pub mod snippet;
 
 use std::collections::HashMap;
 use std::path::Path;
@@ -180,7 +181,11 @@ impl CardManager {
         let data_dir = self.card_dir.parent().unwrap_or(&self.card_dir).to_path_buf();
         
         // Register the backup card
-        self.register_card(Box::new(BackupCard::new(data_dir)))?;
+        self.register_card(Box::new(BackupCard::new(data_dir.clone())))?;
+        
+        // Register the snippet card
+        use crate::cards::snippet::SnippetCard;
+        self.register_card(Box::new(SnippetCard::new(data_dir)))?;
         
         Ok(())
     }

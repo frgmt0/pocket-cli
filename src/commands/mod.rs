@@ -18,79 +18,61 @@ pub fn add_command(
     message: Option<String>,
     editor: bool,
     backpack: Option<String>,
+    clipboard: Option<bool>,
+    summarize: Option<String>,
 ) -> Result<String> {
     let storage = StorageManager::new()?;
     
-    // Get content from file, message, or editor
-    let content = if let Some(file_path) = file {
-        let path = Path::new(&file_path);
+    // Determine the content source
+    let (content, file_path) = if let Some(true) = clipboard {
+        // Read from clipboard
+        (utils::read_clipboard()?, None)
+    } else if let Some(ref file_path) = file {
+        // Read from file
+        let path = Path::new(file_path);
         if !path.exists() {
             return Err(anyhow!("File not found: {}", file_path));
         }
-        
-        // Detect content type from file
-        let content_type = utils::detect_content_type(Some(path), None);
-        let content = utils::read_file_content(path)?;
-        
-        // Create and save entry
-        let title = content.lines().next().unwrap_or("").to_string();
-        let entry = Entry::new(title, content_type, Some(file_path), vec![]);
-        
-        storage.save_entry(&entry, &content, backpack.as_deref())?;
-        
-        entry.id
-    } else if let Some(message) = message {
-        // Detect content type from message
-        let content_type = utils::detect_content_type(None, Some(&message));
-        
-        // Create and save entry
-        let title = message.lines().next().unwrap_or("").to_string();
-        let entry = Entry::new(title, content_type, None, vec![]);
-        
-        storage.save_entry(&entry, &message, backpack.as_deref())?;
-        
-        entry.id
+        (fs::read_to_string(path)?, Some(file_path.clone()))
+    } else if let Some(msg) = message {
+        // Use provided message
+        (msg, None)
     } else if editor {
-        // Open editor for user to enter content
-        println!("Opening editor. Write your content and save it to add it to Pocket.");
-        
-        // First detect a reasonable default content type based on backpack name
-        let default_content_type = if let Some(backpack_name) = &backpack {
-            match backpack_name.to_lowercase().as_str() {
-                "rust" | "go" | "js" | "javascript" | "ts" | "typescript" | "py" | "python" | 
-                "java" | "c" | "cpp" | "cs" | "csharp" => ContentType::Code,
-                "html" | "css" | "web" => ContentType::Other(backpack_name.to_lowercase()),
-                "markdown" | "md" | "docs" => ContentType::Other("markdown".to_string()),
-                "sql" | "database" => ContentType::Other("sql".to_string()),
-                "json" | "yaml" | "config" => ContentType::Other(backpack_name.to_lowercase()),
-                _ => ContentType::Text,
-            }
-        } else {
-            ContentType::Text
-        };
-        
-        // Open editor with appropriate syntax highlighting
-        let content = utils::open_editor_with_type(default_content_type, None)?;
-        
-        if content.trim().is_empty() {
-            return Err(anyhow!("Empty content, nothing to save"));
-        }
-        
-        // Detect content type from what was entered
-        let content_type = utils::detect_content_type(None, Some(&content));
-        
-        // Create and save entry
-        let title = content.lines().next().unwrap_or("").to_string();
-        let entry = Entry::new(title, content_type, None, vec![]);
-        
-        storage.save_entry(&entry, &content, backpack.as_deref())?;
-        
-        entry.id
+        // Open editor
+        (utils::open_editor(None)?, None)
     } else {
-        return Err(anyhow!("No content provided. Use --file, --message, or --editor"));
+        // Read from stdin
+        (utils::read_stdin_content()?, None)
     };
     
-    Ok(content)
+    if content.trim().is_empty() {
+        return Err(anyhow!("Empty content"));
+    }
+    
+    // Detect content type
+    let content_type = utils::detect_content_type(file_path.as_deref().map(Path::new), Some(&content));
+    
+    // Create title from first line
+    let title = utils::get_title_from_content(&content);
+    
+    // Create entry
+    let mut entry = Entry::new(title, content_type, file_path, vec![]);
+    
+    // Add summary if provided or generate one
+    if let Some(summary_text) = summarize {
+        let summary = utils::SummaryMetadata::new(summary_text, false);
+        entry.add_metadata("summary", &summary.to_json());
+    } else if content.len() > 100 {
+        // Auto-generate summary for longer content
+        let summary_text = utils::summarize_text(&content)?;
+        let summary = utils::SummaryMetadata::new(summary_text, true);
+        entry.add_metadata("summary", &summary.to_json());
+    }
+    
+    // Save entry
+    storage.save_entry(&entry, &content, backpack.as_deref())?;
+    
+    Ok(entry.id)
 }
 
 /// List entries in pocket storage
@@ -281,6 +263,13 @@ pub fn search_command(
                 .collect::<Vec<_>>()
                 .join(" ");
             println!("   Tags: {}", tags.cyan());
+        }
+        
+        // Show summary if available
+        if let Some(summary_json) = result.entry.get_metadata("summary") {
+            if let Ok(summary) = crate::utils::SummaryMetadata::from_json(summary_json) {
+                println!("   Summary: {}", summary.summary.bright_white());
+            }
         }
         
         // Display highlights
@@ -1801,15 +1790,15 @@ pub fn edit_command(
     }
     
     // Create a new entry with updated content
-    let title = updated_content.lines().next().unwrap_or("").to_string();
     let updated_entry = Entry {
         id: entry.id.clone(),
-        title,
+        title: entry.title.clone(),
         created_at: entry.created_at,
         updated_at: chrono::Utc::now(),
-        source: entry.source,
-        tags: entry.tags,
-        content_type: utils::detect_content_type(None, Some(&updated_content)),
+        source: entry.source.clone(),
+        tags: entry.tags.clone(),
+        content_type: entry.content_type.clone(),
+        metadata: entry.metadata.clone(),
     };
     
     // Save the updated entry
