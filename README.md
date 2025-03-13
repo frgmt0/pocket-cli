@@ -56,7 +56,7 @@ If you encounter any issues or have questions, please [create an issue](https://
   
 ## Version
 
-Current version: `v-pocket-R3B1-nCR2`
+Current version: `v-pocket-R3C/B1-ncR2<`
 
 I use a versioning system with letter-based releases, because apparently semver was too mainstream. For more information, see my [versioning philosophy](https://blog.frgmt.xyz/03102025-tech).
 
