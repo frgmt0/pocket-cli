@@ -336,6 +336,21 @@ enum Commands {
         /// Card subcommand
         #[command(subcommand)]
         operation: Option<CardOperation>,
+    },
+
+    /// 🧪 Blend shell scripts into your shell configuration
+    Blend {
+        /// Path to shell script file to blend into shell configuration
+        #[arg(value_name = "SCRIPT_FILE")]
+        script_file: Option<String>,
+        
+        /// Create as an executable hook command (accessible with @name)
+        #[arg(long, short)]
+        executable: bool,
+        
+        /// Subcommand
+        #[command(subcommand)]
+        command: Option<BlendCommands>,
     }
 }
 
@@ -463,6 +478,28 @@ enum CardOperation {
         /// Build in release mode
         #[arg(long, short)]
         release: bool,
+    },
+}
+
+#[derive(Subcommand)]
+enum BlendCommands {
+    /// Edit an existing hook
+    Edit {
+        /// Name of the hook to edit (with or without @ prefix)
+        hook_name: String,
+    },
+    
+    /// List all installed hooks
+    List,
+    
+    /// Run a hook command directly
+    Run {
+        /// Name of the hook to run (with or without @ prefix)
+        hook_name: String,
+        
+        /// Arguments to pass to the hook
+        #[arg(trailing_var_arg = true)]
+        args: Vec<String>,
     },
 }
 
@@ -618,6 +655,9 @@ fn main() -> Result<()> {
         Commands::Cards { operation } => {
             cards_command(operation.as_ref())?;
         }
+        Commands::Blend { script_file, executable, command } => {
+            blend_command(script_file.as_ref(), executable, command.as_ref())?;
+        }
     }
 
     Ok(())
@@ -665,8 +705,13 @@ fn print_custom_help() {
     println!("    cards               Manage cards (cards)");
     println!("");
     
-    println!("For more information about a specific command, run:");
-    println!("    pocket help <COMMAND>");
+    println!("UTILITY COMMANDS:");
+    println!("    cards               Manage cards and plugins");
+    println!("    blend               Blend shell scripts into your shell configuration via hooks");
+    println!("    version             Display version information");
+    println!("");
+    
+    println!("Run 'pocket help <COMMAND>' for more information on a specific command.");
 }
 
 /// Handles card commands
@@ -1104,4 +1149,37 @@ fn copy_dir_all(src: impl AsRef<std::path::Path>, dst: impl AsRef<std::path::Pat
     }
     
     Ok(())
+}
+
+fn blend_command(script_file: Option<&String>, executable: bool, command: Option<&BlendCommands>) -> Result<()> {
+    use commands::blend::BlendArgs as BlendArgsImpl;
+    use commands::blend::BlendCommands as BlendCommandsImpl;
+    
+    let cmd = match command {
+        Some(BlendCommands::Edit { hook_name }) => {
+            Some(BlendCommandsImpl::Edit {
+                hook_name: hook_name.clone(),
+            })
+        },
+        Some(BlendCommands::List) => {
+            Some(BlendCommandsImpl::List)
+        },
+        Some(BlendCommands::Run { hook_name, args }) => {
+            Some(BlendCommandsImpl::Run {
+                hook_name: hook_name.clone(),
+                args: args.clone(),
+            })
+        },
+        None => None,
+    };
+    
+    let script_file_owned = script_file.cloned();
+    
+    let args = BlendArgsImpl {
+        script_file: script_file_owned,
+        command: cmd,
+        executable,
+    };
+    
+    args.run()
 }

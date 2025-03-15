@@ -21,6 +21,9 @@ Pocket helps developers save and find code snippets, manage version control, and
 - **Version Control**: Built-in Git-like version control system that won't make you question your career choices
 - **Workflows**: Chain commands together for automation, because typing the same sequence repeatedly is soul-crushing
 - **Cards**: Extend functionality with plugins, for when the base features aren't quite enough
+- **Shell Integration**: 
+  - Add shell extensions that load when your terminal starts, providing aliases and functions
+  - Create executable hooks that can be run directly with the `@name` command syntax
 
 ## Quick Start
 
@@ -36,6 +39,12 @@ pocket search "that thing with the loop"
 
 # Use a snippet (the payoff moment)
 pocket insert ID file.js
+
+# Add a shell extension for aliases and functions
+pocket blend my_aliases.sh
+
+# Create an executable hook you can run with @name
+pocket blend --executable my_script.sh
 ```
 
 ## Documentation
@@ -46,6 +55,7 @@ For more detailed information, check out the documentation, which we've actually
 - [Command Reference](docs/commands.md) - All the commands you'll forget and need to look up
 - [Version Control System](docs/version-control.md) - Version control for humans
 - [Cards System](docs/cards.md) - Extending functionality without learning C++
+- [Shell Hooks](docs/hooks.md) - Integrating Pocket with your shell environment
 
 ## Issues and Support
 
@@ -56,7 +66,7 @@ If you encounter any issues or have questions, please [create an issue](https://
   
 ## Version
 
-Current version: `v-pocket-R3C/B1-ncR2<`
+Current version: `v-pocket-R3C/B2-ncR2<`
 
 I use a versioning system with letter-based releases, because apparently semver was too mainstream. For more information, see my [versioning philosophy](https://blog.frgmt.xyz/03102025-tech).
 

@@ -12,6 +12,9 @@ use std::collections::HashMap;
 use walkdir::WalkDir;
 use regex::Regex;
 
+// Export blend module
+pub mod blend;
+
 /// Add content to pocket storage
 pub fn add_command(
     file: Option<String>,

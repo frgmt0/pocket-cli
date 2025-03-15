@@ -172,6 +172,39 @@ pocket help command
 pocket version
 ```
 
+## Utility Commands
+*Making your CLI life easier*
+
+### Shell Integration with Blend
+*Mixing your shell scripts into your environment*
+
+```bash
+# Add a shell script as a shell extension (sourced at shell startup)
+pocket blend my_aliases.sh
+
+# Add a shell script as an executable hook (can be run with @name)
+pocket blend --executable my_script.sh
+
+# List all installed hooks
+pocket blend list
+
+# Edit an existing hook
+pocket blend edit hook_name
+
+# Run an executable hook
+pocket blend run hook_name [arguments]
+# Or, after shell restart:
+@hook_name [arguments]
+```
+
+The `blend` command provides two ways to integrate scripts with your shell:
+
+1. **Shell Extensions**: Scripts added without the `--executable` flag are sourced when your shell starts, making aliases and functions available in your terminal.
+
+2. **Executable Hooks**: Scripts added with the `--executable` flag can be directly executed using the `@name` prefix or via `pocket blend run`.
+
+For more details, check out the [Shell Hooks](hooks.md) documentation.
+
 ## The Fine Print
 
 Remember, with great Pocket power comes great responsibility. These commands can make your coding life dramatically better—or at least more organized, which is basically the same thing. If something breaks, well... you've got version control, right?

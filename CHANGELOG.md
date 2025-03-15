@@ -2,6 +2,25 @@
 
 All notable changes to Pocket will be documented in this file using our letter-based versioning system.
 
+## v-pocket-R3C/B2-ncR2< (04152025 - Shell Integration)
+
+### Added
+- Implemented shell integration via the new `blend` command with two modes:
+  - Shell Extensions: Scripts sourced at shell startup (aliases, functions, environment vars)
+  - Executable Hooks: Scripts that can be directly executed with `@name` syntax
+- Added `--executable` flag to create runnable hook commands
+- Created a hooks management system with add, list, edit, and run commands
+- Support for shell-specific configuration detection (zsh, bash)
+- Direct execution of hooks via `@name` command syntax or `pocket blend run`
+
+### Changed
+- Improved shell environment integration for better CLI experience
+- Enhanced command structure with utility commands section
+
+### Notes
+- Compatibility extends to all basic functions of Pocket along with Shell Integration
+- VCS and Card support requirements remain the same as previous versions
+
 ## v-pocket-R3C/B1-ncR2< (04012025 - Clipboard & Summarization)
 
 ### Added
