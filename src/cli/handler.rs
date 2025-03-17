@@ -10,8 +10,9 @@ use colored::Colorize;
 pub fn handle_command(cli: Cli) -> PocketResult<()> {
     // Set up logging based on verbosity
     let log_level = match cli.verbose {
-        0 => LevelFilter::Info,
-        1 => LevelFilter::Debug,
+        0 => LevelFilter::Warn,
+        1 => LevelFilter::Info,
+        2 => LevelFilter::Debug,
         _ => LevelFilter::Trace,
     };
     logging::init(log_level);
