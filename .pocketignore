@@ -1,5 +1,0 @@
-# Pocket ignore file
-.DS_Store
-*.log
-target/*
-spec.md

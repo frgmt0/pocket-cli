@@ -3,7 +3,7 @@ use dialoguer::{theme::ColorfulTheme, Confirm, Input, Select};
 use owo_colors::OwoColorize;
 use std::fs;
 use std::io::{self, Read, Write};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 use std::env;
 use std::time::SystemTime;
@@ -358,4 +358,74 @@ pub fn get_title_from_content(content: &str) -> String {
     } else {
         truncate_string(first, 50)
     }
+}
+
+/// Expand a path string with tilde and environment variables
+pub fn expand_path(path: &str) -> Result<PathBuf> {
+    let expanded = if path.starts_with("~") {
+        if let Some(home) = dirs::home_dir() {
+            let path_without_tilde = path.strip_prefix("~").unwrap_or("");
+            home.join(path_without_tilde.strip_prefix("/").unwrap_or(path_without_tilde))
+        } else {
+            return Err(anyhow!("Could not determine home directory"));
+        }
+    } else {
+        PathBuf::from(path)
+    };
+
+    // Expand environment variables
+    let mut result = String::new();
+    let mut in_var = false;
+    let mut var_name = String::new();
+
+    for c in expanded.to_str().unwrap_or(path).chars() {
+        if in_var {
+            if c.is_alphanumeric() || c == '_' {
+                var_name.push(c);
+            } else {
+                if !var_name.is_empty() {
+                    if let Ok(value) = std::env::var(&var_name) {
+                        result.push_str(&value);
+                    }
+                    var_name.clear();
+                } else {
+                    result.push('$');
+                }
+                result.push(c);
+                in_var = false;
+            }
+        } else if c == '$' {
+            in_var = true;
+        } else {
+            result.push(c);
+        }
+    }
+
+    if in_var && !var_name.is_empty() {
+        if let Ok(value) = std::env::var(&var_name) {
+            result.push_str(&value);
+        }
+    }
+
+    Ok(PathBuf::from(result))
+}
+
+/// Find the cursor position in a file
+/// This looks for a special marker like "// CURSOR" and returns its position
+pub fn get_cursor_position(content: &str) -> Option<usize> {
+    // First, look for a dedicated cursor marker
+    for marker in ["// CURSOR", "# CURSOR", "<!-- CURSOR -->", "/* CURSOR */"] {
+        if let Some(pos) = content.find(marker) {
+            return Some(pos);
+        }
+    }
+    
+    // If no marker found, try to find a reasonable position
+    // Look for two consecutive empty lines
+    if let Some(pos) = content.find("\n\n\n") {
+        return Some(pos + 2); // Position after the second newline
+    }
+    
+    // Look for the end of the file
+    Some(content.len())
 } 

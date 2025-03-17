@@ -18,7 +18,7 @@ portal for sharing snippets without cloud services or accounts, just easy file t
 pocket beacon snippet-id  --- updates the snippet live if possible (only for local network connections)
 pocket beacon find --- finds available servers with compatible endpoints so you don't accidentally connect to something else
 
-blend for when people have scripts they want to run pocket can do custom hooks
+~~blend for when people have scripts they want to run pocket can do custom hooks~~
 
 blink for when you maybe have 2 similar files and want to quickly compare diffs to make sure that they do different things (pretty sure this is a shell command lol but whatever)
 

@@ -85,54 +85,6 @@ pocket lint workflow_name
 pocket delete-workflow workflow_name
 ```
 
-## Version Control
-*Git, but with more... something? i'm not sure*
-NOTE: STILL IN ALPHA/BETA!!!!! Use at your own risk!
-
-```bash
-# Initialize a repository (the beginning of your journey)
-pocket new-repo
-
-# Show repository status (what mess have I created?)
-pocket status
-
-# Add files to staging area (single file mode)
-pocket pile file.js
-# Add files to staging area (sweep everything under the rug mode)
-pocket pile --all
-
-# Remove files from staging area (single file regret)
-pocket unpile file.js
-# Remove files from staging area (total regret)
-pocket unpile --all
-
-# Create a commit (freeze your work in digital amber)
-pocket shove -m "Fixed the thing that wasn't working"
-pocket shove -e  # For when your commit deserves an essay
-
-# Show commit history (trip down memory lane)
-pocket log
-pocket log --verbose  # For when you want ALL the details
-
-# Create a new timeline (branch) (parallel universe mode)
-pocket timeline new name
-
-# Switch to a timeline (universe hopping)
-pocket timeline switch name
-
-# List timelines (see all your parallel universes)
-pocket timeline list
-
-# FUTURE Merge a timeline (universe collision)
-pocket merge timeline_name
-
-# FUTURE Add a remote repository (make friends with other computers)
-pocket remote add name url
-
-# FUTURE Push to a remote (share your genius)
-pocket push remote_name
-```
-
 ## Cards (Plugins)
 *Extend functionality without learning C++*
 

@@ -18,7 +18,6 @@ Pocket helps developers save and find code snippets, manage version control, and
 - **Snippet Management**: Save, search, and reuse code snippets that would otherwise be destined for digital oblivion
 - **Semantic Search**: Find snippets using natural language queries, because remembering exact variable names from six months ago is unrealistic
 - **Backpacks**: Organize snippets into collections, like folders but with a more adventurous name
-- **Version Control**: Built-in Git-like version control system that won't make you question your career choices
 - **Workflows**: Chain commands together for automation, because typing the same sequence repeatedly is soul-crushing
 - **Cards**: Extend functionality with plugins, for when the base features aren't quite enough
 - **Shell Integration**: 
@@ -53,7 +52,6 @@ For more detailed information, check out the documentation, which we've actually
 
 - [Installation Guide](docs/installation.md) - Getting started without the headaches
 - [Command Reference](docs/commands.md) - All the commands you'll forget and need to look up
-- [Version Control System](docs/version-control.md) - Version control for humans
 - [Cards System](docs/cards.md) - Extending functionality without learning C++
 - [Shell Hooks](docs/hooks.md) - Integrating Pocket with your shell environment
 
@@ -66,7 +64,7 @@ If you encounter any issues or have questions, please [create an issue](https://
   
 ## Version
 
-Current version: `v-pocket-R3C/B2-ncR2<`
+Current version: `v-pocket-R1`
 
 I use a versioning system with letter-based releases, because apparently semver was too mainstream. For more information, see my [versioning philosophy](https://blog.frgmt.xyz/03102025-tech).
 
