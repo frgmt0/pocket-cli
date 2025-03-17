@@ -4,6 +4,7 @@ use crate::models::{Entry, ContentType};
 use crate::storage::StorageManager;
 use anyhow::{Result, anyhow, Context};
 use std::path::PathBuf;
+use std::fs;
 
 /// Card for enhanced snippet functionality
 pub struct SnippetCard {
@@ -60,6 +61,93 @@ impl SnippetCard {
             config: SnippetCardConfig::default(),
             data_dir: data_dir.as_ref().to_path_buf(),
         }
+    }
+    
+    /// Adds a snippet from a file or editor
+    pub fn add(&self, 
+              file: Option<&str>,
+              message: Option<&str>,
+              use_editor: bool, 
+              use_clipboard: bool,
+              backpack: Option<&str>,
+              summarize: Option<&str>) -> Result<String> {
+        // Initialize content
+        let content = if let Some(file_path) = file {
+            // Read from file
+            fs::read_to_string(file_path)
+                .context(format!("Failed to read file: {}", file_path))?
+        } else if use_editor {
+            // Open editor
+            crate::utils::open_editor(None)
+                .context("Failed to open editor")?
+        } else if use_clipboard {
+            // Read from clipboard
+            read_clipboard()
+                .context("Failed to read from clipboard")?
+        } else {
+            // No content source provided
+            return Err(anyhow!("No content source provided. Use --file, --editor, or --clipboard options"));
+        };
+
+        if content.trim().is_empty() {
+            return Err(anyhow!("Content is empty"));
+        }
+        
+        // Detect content type
+        let content_type = if let Some(file_path) = file {
+            let path = PathBuf::from(file_path);
+            crate::utils::detect_content_type(Some(&path), Some(&content))
+        } else {
+            crate::utils::detect_content_type(None, Some(&content))
+        };
+        
+        // Create a title from message, first line, or first 50 chars if no lines
+        let title = if let Some(msg) = message {
+            msg.to_string()
+        } else {
+            content.lines().next()
+                .unwrap_or(&content[..std::cmp::min(50, content.len())])
+                .to_string()
+        };
+        
+        // Create entry
+        let mut entry = Entry::new(title, content_type, None, vec![]);
+        
+        // Create summary metadata
+        let summary = if let Some(manual_summary) = summarize {
+            // User provided a summary, use it
+            SummaryMetadata::new(manual_summary.to_string(), false)
+        } else if self.config.auto_summarize {
+            // Auto-generate a summary
+            let summary = summarize_text(&content)
+                .unwrap_or_else(|_| {
+                    // Fallback: use first line or first 100 chars
+                    content.lines().next()
+                        .unwrap_or(&content[..std::cmp::min(100, content.len())])
+                        .to_string()
+                });
+                
+            // Truncate if needed
+            let summary = if summary.len() > self.config.max_summary_length {
+                format!("{}...", &summary[..self.config.max_summary_length - 3])
+            } else {
+                summary
+            };
+            
+            SummaryMetadata::new(summary, true)
+        } else {
+            // No summarization requested
+            SummaryMetadata::new("".to_string(), true)
+        };
+        
+        // Add summary metadata to entry
+        entry.add_metadata("summary", &summary.to_json());
+        
+        // Save the entry
+        let storage = StorageManager::new()?;
+        storage.save_entry(&entry, &content, backpack)?;
+        
+        Ok(entry.id)
     }
     
     /// Adds a snippet from clipboard content
@@ -204,6 +292,73 @@ impl Card for SnippetCard {
     
     fn execute(&self, command: &str, args: &[String]) -> Result<()> {
         match command {
+            "add" => {
+                let mut file = None;
+                let mut message = None;
+                let mut use_editor = false;
+                let mut use_clipboard = false;
+                let mut backpack = None;
+                let mut summarize = None;
+                
+                // Parse arguments
+                let mut i = 0;
+                while i < args.len() {
+                    if args[i].starts_with("--file=") {
+                        file = Some(args[i][7..].to_string());
+                        i += 1;
+                    } else if args[i] == "--file" {
+                        if i + 1 < args.len() {
+                            file = Some(args[i + 1].clone());
+                            i += 2;
+                        } else {
+                            return Err(anyhow!("--file requires a file path"));
+                        }
+                    } else if args[i].starts_with("--message=") {
+                        message = Some(args[i][10..].to_string());
+                        i += 1;
+                    } else if args[i] == "--message" {
+                        if i + 1 < args.len() {
+                            message = Some(args[i + 1].clone());
+                            i += 2;
+                        } else {
+                            return Err(anyhow!("--message requires a message string"));
+                        }
+                    } else if args[i] == "--editor" {
+                        use_editor = true;
+                        i += 1;
+                    } else if args[i] == "--clipboard" {
+                        use_clipboard = true;
+                        i += 1;
+                    } else if args[i].starts_with("--backpack=") {
+                        backpack = Some(args[i][11..].to_string());
+                        i += 1;
+                    } else if args[i] == "--backpack" {
+                        if i + 1 < args.len() {
+                            backpack = Some(args[i + 1].clone());
+                            i += 2;
+                        } else {
+                            return Err(anyhow!("--backpack requires a backpack name"));
+                        }
+                    } else if args[i].starts_with("--summarize=") {
+                        summarize = Some(args[i][12..].to_string());
+                        i += 1;
+                    } else if args[i] == "--summarize" {
+                        if i + 1 < args.len() {
+                            summarize = Some(args[i + 1].clone());
+                            i += 2;
+                        } else {
+                            return Err(anyhow!("--summarize requires a summary string"));
+                        }
+                    } else {
+                        i += 1;
+                    }
+                }
+                
+                // Add snippet
+                let id = self.add(file.as_deref(), message.as_deref(), use_editor, use_clipboard, backpack.as_deref(), summarize.as_deref())?;
+                println!("Added snippet with ID: {}", id);
+                Ok(())
+            },
             "add-from-clipboard" => {
                 let mut user_summary = None;
                 let mut backpack = None;
@@ -313,6 +468,11 @@ impl Card for SnippetCard {
     
     fn commands(&self) -> Vec<CardCommand> {
         vec![
+            CardCommand {
+                name: "add".to_string(),
+                description: "Add a new snippet from a file or editor".to_string(),
+                usage: "pocket cards execute snippet add [--file=FILE] [--message=MESSAGE] [--editor] [--backpack=BACKPACK] [--summarize=SUMMARY]".to_string(),
+            },
             CardCommand {
                 name: "add-from-clipboard".to_string(),
                 description: "Add a snippet from clipboard content".to_string(),

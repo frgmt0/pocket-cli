@@ -173,23 +173,9 @@ pub fn handle_command(cli: Cli) -> PocketResult<()> {
                 }
             } else if top {
                 // Handle top entry insertion (not yet fully migrated to card system)
-                logging::warning("Top entry insertion is not yet fully migrated to the card system");
-                logging::warning("This will be improved in a future version");
-                
-                // For now, we'll do a simple implementation
-                let file_path = file.ok_or_else(|| PocketError::Cli("Missing file path".to_string()))?;
-                
-                // Get the most recent entry
-                let mut list_args = vec!["--limit".to_string(), "1".to_string()];
-                
-                // Execute the search command and capture output
-                // This is a workaround until we have proper inter-card communication
-                // TODO: Implement proper inter-card communication
-                
-                logging::error("Top entry insertion not yet implemented in the card system");
                 return Err(PocketError::Cli("Operation not yet supported in the card system".to_string()));
             } else {
-                return Err(PocketError::Cli("Missing entry ID or --top flag for insert".to_string()));
+                return Err(PocketError::Cli("Missing entry ID for insert".to_string()));
             }
         },
         
