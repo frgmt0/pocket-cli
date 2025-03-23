@@ -18,18 +18,18 @@ pub mod clipboard;
 pub mod summarization;
 
 // Re-export clipboard functions for convenience
-pub use clipboard::{read_clipboard, write_clipboard};
+pub use clipboard::read_clipboard;
 
 // Re-export summarization functions for convenience
 pub use summarization::{summarize_text, SummaryMetadata};
 
-/// Read content from a file
-pub fn read_file_content(path: &Path) -> Result<String> {
+/// Read content from a file (unused)
+pub fn _read_file_content(path: &Path) -> Result<String> {
     fs::read_to_string(path).map_err(|e| anyhow!("Failed to read file {}: {}", path.display(), e))
 }
 
-/// Read content from stdin
-pub fn read_stdin_content() -> Result<String> {
+/// Read content from stdin (unused)
+pub fn _read_stdin_content() -> Result<String> {
     let mut buffer = String::new();
     io::stdin().read_to_string(&mut buffer)?;
     Ok(buffer)
@@ -72,8 +72,8 @@ pub fn open_editor(initial_content: Option<&str>) -> Result<String> {
     Ok(content)
 }
 
-/// Open the system editor with syntax highlighting hints based on content type
-pub fn open_editor_with_type(content_type: ContentType, initial_content: Option<&str>) -> Result<String> {
+/// Open the system editor with syntax highlighting hints based on content type (unused)
+pub fn _open_editor_with_type(content_type: ContentType, initial_content: Option<&str>) -> Result<String> {
     // Find the user's preferred editor
     let editor = get_editor()?;
     
@@ -156,10 +156,10 @@ pub fn open_editor_with_type(content_type: ContentType, initial_content: Option<
     Ok(content)
 }
 
-/// Edit an existing entry
-pub fn edit_entry(id: &str, content: &str, content_type: ContentType) -> Result<String> {
+/// Edit an existing entry (unused)
+pub fn _edit_entry(id: &str, content: &str, content_type: ContentType) -> Result<String> {
     println!("Opening entry {} in editor. Make your changes and save to update.", id.cyan());
-    open_editor_with_type(content_type, Some(content))
+    _open_editor_with_type(content_type, Some(content))
 }
 
 /// Get the user's preferred editor
@@ -250,42 +250,27 @@ pub fn detect_content_type(path: Option<&Path>, content: Option<&str>) -> Conten
             return ContentType::Script;
         }
         
-        // Check for common code patterns
-        let trimmed = content.trim();
-        if trimmed.starts_with("#include") || trimmed.starts_with("#define") || 
-           trimmed.starts_with("import ") || trimmed.starts_with("from ") || 
-           trimmed.starts_with("package ") || trimmed.starts_with("using ") ||
-           trimmed.starts_with("function ") || trimmed.starts_with("def ") ||
-           trimmed.starts_with("class ") || trimmed.starts_with("struct ") ||
-           trimmed.starts_with("enum ") || trimmed.starts_with("interface ") ||
-           trimmed.contains("public class ") || trimmed.contains("private class ") ||
-           trimmed.contains("fn ") || trimmed.contains("pub fn ") ||
-           trimmed.contains("impl ") || trimmed.contains("trait ") {
+        // Check for Python shebang
+        if content.starts_with("#!/usr/bin/env python") || 
+           content.starts_with("#!/usr/bin/python") {
             return ContentType::Code;
         }
         
-        // Check for JSON
-        if (trimmed.starts_with('{') && trimmed.ends_with('}')) ||
-           (trimmed.starts_with('[') && trimmed.ends_with(']')) {
-            return ContentType::Other("json".to_string());
-        }
-        
         // Check for HTML
-        if trimmed.starts_with("<!DOCTYPE html>") || 
-           trimmed.starts_with("<html>") || 
-           trimmed.contains("<body>") {
+        if content.trim_start().starts_with("<!DOCTYPE html>") || 
+           content.trim_start().starts_with("<html>") {
             return ContentType::Other("html".to_string());
         }
         
         // Check for Markdown
-        if trimmed.starts_with("# ") || 
-           trimmed.contains("\n## ") || 
-           trimmed.contains("\n### ") {
+        if content.starts_with("# ") && content.contains("\n\n") {
             return ContentType::Other("markdown".to_string());
         }
+        
+        // Additional checks could be added here...
     }
     
-    // Default to text
+    // Default to text if we can't determine the type
     ContentType::Text
 }
 
@@ -304,21 +289,18 @@ where
     T::Err: std::fmt::Display,
 {
     let theme = ColorfulTheme::default();
+    let mut input = Input::<T>::with_theme(&theme)
+        .with_prompt(message);
     
-    if let Some(default_value) = default {
-        Ok(Input::<T>::with_theme(&theme)
-            .with_prompt(message)
-            .default(default_value)
-            .interact()?)
-    } else {
-        Ok(Input::<T>::with_theme(&theme)
-            .with_prompt(message)
-            .interact()?)
+    if let Some(default_val) = default {
+        input = input.default(default_val);
     }
+    
+    Ok(input.interact()?)
 }
 
-/// Prompt the user to select from a list of options
-pub fn select<T>(message: &str, options: &[T]) -> Result<usize>
+/// Prompt the user to select from a list of options (unused)
+pub fn _select<T>(message: &str, options: &[T]) -> Result<usize>
 where
     T: std::fmt::Display,
 {
@@ -329,103 +311,60 @@ where
         .interact()?)
 }
 
-/// Format content with tag
-pub fn format_with_tag(tag: &str, content: &str) -> String {
+/// Format content with tag (unused)
+pub fn _format_with_tag(tag: &str, content: &str) -> String {
     format!("--- {} ---\n{}\n--- end {} ---\n", tag, content, tag)
 }
 
-/// Truncate a string to a maximum length with ellipsis
-pub fn truncate_string(s: &str, max_len: usize) -> String {
+/// Truncate a string to a maximum length with ellipsis (unused)
+pub fn _truncate_string(s: &str, max_len: usize) -> String {
     if s.len() <= max_len {
         s.to_string()
     } else {
-        let mut result = s.chars().take(max_len - 3).collect::<String>();
-        result.push_str("...");
-        result
+        format!("{}...", &s[..max_len - 3])
     }
 }
 
-/// Extract the first line of a string
-pub fn first_line(s: &str) -> &str {
+/// Extract the first line of a string (unused)
+pub fn _first_line(s: &str) -> &str {
     s.lines().next().unwrap_or(s)
 }
 
-/// Get a title from content (first line or truncated content)
-pub fn get_title_from_content(content: &str) -> String {
-    let first = first_line(content);
-    if first.is_empty() {
-        truncate_string(content, 50)
+/// Get a title from content (first line or truncated content) (unused)
+pub fn _get_title_from_content(content: &str) -> String {
+    let first = _first_line(content);
+    if first.len() > 50 {
+        _truncate_string(first, 50)
     } else {
-        truncate_string(first, 50)
+        first.to_string()
     }
 }
 
-/// Expand a path string with tilde and environment variables
+/// Get the path with ~ expanded to the home directory
 pub fn expand_path(path: &str) -> Result<PathBuf> {
-    let expanded = if path.starts_with("~") {
-        if let Some(home) = dirs::home_dir() {
-            let path_without_tilde = path.strip_prefix("~").unwrap_or("");
-            home.join(path_without_tilde.strip_prefix("/").unwrap_or(path_without_tilde))
-        } else {
-            return Err(anyhow!("Could not determine home directory"));
-        }
+    if path.starts_with("~/") {
+        let home = dirs::home_dir().ok_or_else(|| anyhow!("Could not determine home directory"))?;
+        Ok(home.join(&path[2..]))
     } else {
-        PathBuf::from(path)
-    };
-
-    // Expand environment variables
-    let mut result = String::new();
-    let mut in_var = false;
-    let mut var_name = String::new();
-
-    for c in expanded.to_str().unwrap_or(path).chars() {
-        if in_var {
-            if c.is_alphanumeric() || c == '_' {
-                var_name.push(c);
-            } else {
-                if !var_name.is_empty() {
-                    if let Ok(value) = std::env::var(&var_name) {
-                        result.push_str(&value);
-                    }
-                    var_name.clear();
-                } else {
-                    result.push('$');
-                }
-                result.push(c);
-                in_var = false;
-            }
-        } else if c == '$' {
-            in_var = true;
-        } else {
-            result.push(c);
-        }
+        Ok(PathBuf::from(path))
     }
-
-    if in_var && !var_name.is_empty() {
-        if let Ok(value) = std::env::var(&var_name) {
-            result.push_str(&value);
-        }
-    }
-
-    Ok(PathBuf::from(result))
 }
 
-/// Find the cursor position in a file
-/// This looks for a special marker like "// CURSOR" and returns its position
+/// Find the cursor position in a file if marked with a special comment
 pub fn get_cursor_position(content: &str) -> Option<usize> {
-    // First, look for a dedicated cursor marker
-    for marker in ["// CURSOR", "# CURSOR", "<!-- CURSOR -->", "/* CURSOR */"] {
-        if let Some(pos) = content.find(marker) {
-            return Some(pos);
+    // Look for cursor markers
+    for (i, line) in content.lines().enumerate() {
+        if line.trim() == "// @cursor" || line.trim() == "# @cursor" || line.trim() == "<!-- @cursor -->" {
+            // Find the position in bytes
+            let mut pos = 0;
+            for (j, _) in content.lines().enumerate() {
+                if j == i {
+                    return Some(pos);
+                }
+                pos += content.lines().nth(j).unwrap_or("").len() + 1; // +1 for newline
+            }
         }
     }
     
-    // If no marker found, try to find a reasonable position
-    // Look for two consecutive empty lines
-    if let Some(pos) = content.find("\n\n\n") {
-        return Some(pos + 2); // Position after the second newline
-    }
-    
-    // Look for the end of the file
-    Some(content.len())
+    None
 } 

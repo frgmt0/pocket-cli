@@ -1,12 +1,10 @@
 use crate::cards::{Card, CardConfig, CardCommand};
 use crate::utils;
 use anyhow::{Result, Context, anyhow};
-use colored::Colorize;
 use std::path::PathBuf;
 use std::fs;
 use std::io::{Read, Write};
 use std::process::Command;
-use dirs;
 
 /// Card for shell integration via the blend command
 pub struct BlendCard {
@@ -22,8 +20,8 @@ pub struct BlendCard {
     /// Configuration for the card
     config: BlendCardConfig,
     
-    /// Path to the Pocket data directory
-    data_dir: PathBuf,
+    /// Path to the Pocket data directory (kept for future use)
+    _data_dir: PathBuf,
 }
 
 /// Configuration for the blend card
@@ -53,7 +51,7 @@ impl BlendCard {
             version: env!("CARGO_PKG_VERSION").to_string(),
             description: "Shell integration and executable hooks".to_string(),
             config: BlendCardConfig::default(),
-            data_dir: data_dir.as_ref().to_path_buf(),
+            _data_dir: data_dir.as_ref().to_path_buf(),
         }
     }
     
@@ -306,7 +304,7 @@ impl BlendCard {
         
         // Add the hook to the shell config
         let mut file = fs::OpenOptions::new()
-            .write(true)
+            
             .append(true)
             .create(true)
             .open(&config_path)?;
@@ -337,7 +335,7 @@ impl BlendCard {
         
         // Add the bin directory to PATH
         let mut file = fs::OpenOptions::new()
-            .write(true)
+            
             .append(true)
             .create(true)
             .open(&config_path)?;
@@ -359,11 +357,11 @@ impl Card for BlendCard {
         &self.version
     }
     
-    fn description(&self) -> &str {
+    fn _description(&self) -> &str {
         &self.description
     }
     
-    fn initialize(&mut self, config: &CardConfig) -> Result<()> {
+    fn _initialize(&mut self, config: &CardConfig) -> Result<()> {
         // If there are options in the card config, try to parse them
         if let Some(options_value) = config.options.get("blend") {
             if let Ok(options) = serde_json::from_value::<BlendCardConfig>(options_value.clone()) {

@@ -6,24 +6,23 @@ use anyhow::{Result, Context, anyhow};
 use colored::Colorize;
 use std::path::PathBuf;
 use std::fs;
-use chrono::{DateTime, Utc};
 
 /// Card for core commands (search, insert, etc.)
 pub struct CoreCard {
     /// Name of the card
     name: String,
     
-    /// Version of the card
-    version: String,
+    /// Version of the card (unused)
+    _version: String,
     
-    /// Description of the card
-    description: String,
+    /// Description of the card (unused)
+    _description: String,
     
     /// Configuration for the card
     config: CoreCardConfig,
     
-    /// Path to the Pocket data directory
-    data_dir: PathBuf,
+    /// Path to the Pocket data directory (kept for future use)
+    _data_dir: PathBuf,
 }
 
 /// Configuration for the core card
@@ -50,15 +49,15 @@ impl CoreCard {
     pub fn new(data_dir: impl AsRef<std::path::Path>) -> Self {
         Self {
             name: "core".to_string(),
-            version: env!("CARGO_PKG_VERSION").to_string(),
-            description: "Core functionality for Pocket CLI".to_string(),
+            _version: env!("CARGO_PKG_VERSION").to_string(),
+            _description: "Core card for Pocket CLI".to_string(),
             config: CoreCardConfig::default(),
-            data_dir: data_dir.as_ref().to_path_buf(),
+            _data_dir: data_dir.as_ref().to_path_buf(),
         }
     }
     
     /// Search for entries
-    pub fn search(&self, query: &str, limit: usize, backpack: Option<&str>, exact: bool) -> Result<Vec<Entry>> {
+    pub fn search(&self, query: &str, limit: usize, backpack: Option<&str>, _exact: bool) -> Result<Vec<Entry>> {
         let storage = StorageManager::new()?;
         
         // For now, we'll use the built-in search, as the API doesn't have exact/semantic differentiation
@@ -73,7 +72,7 @@ impl CoreCard {
         let storage = StorageManager::new()?;
         
         // Load the entry and its content
-        let (entry, content) = storage.load_entry(entry_id, None)?;
+        let (_entry, content) = storage.load_entry(entry_id, None)?;
         
         let delim = delimiter.unwrap_or(&self.config.default_delimiter);
         
@@ -196,14 +195,14 @@ impl Card for CoreCard {
     }
     
     fn version(&self) -> &str {
-        &self.version
+        env!("CARGO_PKG_VERSION")
     }
     
-    fn description(&self) -> &str {
-        &self.description
+    fn _description(&self) -> &str {
+        "Core card providing essential functions"
     }
     
-    fn initialize(&mut self, config: &CardConfig) -> Result<()> {
+    fn _initialize(&mut self, config: &CardConfig) -> Result<()> {
         // If there are options in the card config, try to parse them
         if let Some(options_value) = config.options.get("core") {
             if let Ok(options) = serde_json::from_value::<CoreCardConfig>(options_value.clone()) {

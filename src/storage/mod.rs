@@ -1,9 +1,9 @@
 use crate::models::{Entry, Backpack, Config, ContentType, Workflow};
 use anyhow::{Result, Context, anyhow};
 use dirs::home_dir;
-use serde_json;
 use std::fs::{self, create_dir_all};
 use std::path::{Path, PathBuf};
+use chrono::Utc;
 
 /// Storage manager for pocket data
 #[derive(Clone)]
@@ -24,21 +24,19 @@ impl StorageManager {
         let pocket_dir = home.join(".pocket");
         
         // Create directories if they don't exist
-        create_dir_all(&pocket_dir.join("data/entries"))?;
-        create_dir_all(&pocket_dir.join("data/backpacks"))?;
-        create_dir_all(&pocket_dir.join("data/workflows"))?;
-        create_dir_all(&pocket_dir.join("wallet"))?;
+        create_dir_all(pocket_dir.join("data/entries"))?;
+        create_dir_all(pocket_dir.join("data/backpacks"))?;
+        create_dir_all(pocket_dir.join("data/workflows"))?;
+        create_dir_all(pocket_dir.join("wallet"))?;
         
         Ok(pocket_dir)
     }
 
-    /// Get the workflows directory path
-    pub fn get_workflows_dir(&self) -> Result<PathBuf> {
-        let workflows_dir = self.base_path.join("data/workflows");
-        if !workflows_dir.exists() {
-            create_dir_all(&workflows_dir)?;
-        }
-        Ok(workflows_dir)
+    /// Get the workflows directory
+    pub fn _get_workflows_dir(&self) -> Result<PathBuf> {
+        let dir = self.base_path.join("data/workflows");
+        fs::create_dir_all(&dir)?;
+        Ok(dir)
     }
 
     /// Get the path for an entry's metadata
@@ -67,9 +65,9 @@ impl StorageManager {
         self.base_path.join("config.toml")
     }
 
-    /// Get the path for a workflow
-    fn get_workflow_path(&self, name: &str) -> PathBuf {
-        self.base_path.join(format!("data/workflows/{}.workflow", name))
+    /// Get the path to a workflow
+    fn _get_workflow_path(&self, name: &str) -> PathBuf {
+        self.base_path.join("data/workflows").join(format!("{}.json", name))
     }
 
     /// Save an entry to storage
@@ -159,7 +157,7 @@ impl StorageManager {
     pub fn create_backpack(&self, backpack: &Backpack) -> Result<()> {
         // Create backpack directory
         let backpack_dir = self.base_path.join(format!("data/backpacks/{}", backpack.name));
-        create_dir_all(&backpack_dir.join("entries"))?;
+        create_dir_all(backpack_dir.join("entries"))?;
 
         // Save backpack metadata
         let manifest_path = self.get_backpack_path(&backpack.name);
@@ -170,30 +168,34 @@ impl StorageManager {
     }
 
     /// List all backpacks
-    pub fn list_backpacks(&self) -> Result<Vec<Backpack>> {
+    pub fn _list_backpacks(&self) -> Result<Vec<Backpack>> {
         let backpacks_dir = self.base_path.join("data/backpacks");
-        
-        if !backpacks_dir.exists() {
-            return Ok(Vec::new());
-        }
-
         let mut backpacks = Vec::new();
-        for entry in fs::read_dir(backpacks_dir)? {
+        
+        for entry in fs::read_dir(&backpacks_dir)? {
             let entry = entry?;
             let path = entry.path();
             
             if path.is_dir() {
-                let manifest_path = path.join("manifest.json");
-                if manifest_path.exists() {
-                    let manifest_json = fs::read_to_string(&manifest_path)?;
-                    let backpack: Backpack = serde_json::from_str(&manifest_json)?;
+                let name = path.file_name()
+                    .and_then(|n| n.to_str())
+                    .ok_or_else(|| anyhow!("Invalid backpack path"))?;
+                
+                // Each backpack is a subdirectory with entries
+                let meta_path = path.join("manifest.json");
+                if meta_path.exists() {
+                    let meta_json = fs::read_to_string(&meta_path)?;
+                    let backpack: Backpack = serde_json::from_str(&meta_json)?;
                     backpacks.push(backpack);
+                } else {
+                    backpacks.push(Backpack {
+                        name: name.to_string(),
+                        description: None,
+                        created_at: Utc::now(),
+                    });
                 }
             }
         }
-
-        // Sort by name
-        backpacks.sort_by(|a, b| a.name.cmp(&b.name));
         
         Ok(backpacks)
     }
@@ -224,49 +226,47 @@ impl StorageManager {
         Ok(())
     }
 
-    /// Determine the content type based on file extension
-    pub fn determine_content_type(path: &Path) -> ContentType {
-        match path.extension().and_then(|ext| ext.to_str()) {
-            Some("rs" | "go" | "js" | "ts" | "py" | "java" | "c" | "cpp" | "h" | "hpp" | "cs" | 
-                 "php" | "rb" | "swift" | "kt" | "scala" | "sh" | "bash" | "pl" | "sql" | "html" | 
-                 "css" | "scss" | "sass" | "less" | "jsx" | "tsx" | "vue" | "json" | "yaml" | "yml" | 
-                 "toml" | "xml" | "md" | "markdown") => ContentType::Code,
-            _ => ContentType::Text,
+    /// Determine the content type from a file path
+    pub fn _determine_content_type(path: &Path) -> ContentType {
+        if let Some(extension) = path.extension().and_then(|e| e.to_str()) {
+            match extension.to_lowercase().as_str() {
+                "rs" | "go" | "c" | "cpp" | "h" | "java" | "py" | "js" | "ts" => ContentType::Code,
+                "md" | "txt" | "text" => ContentType::Text,
+                "sh" | "bash" => ContentType::Script,
+                _ => ContentType::Other(extension.to_string()),
+            }
+        } else {
+            // If no extension, default to text
+            ContentType::Text
         }
     }
 
     /// Save a workflow
-    pub fn save_workflow(&self, workflow: &Workflow) -> Result<()> {
-        let workflow_path = self.get_workflow_path(&workflow.name);
+    pub fn _save_workflow(&self, workflow: &Workflow) -> Result<()> {
+        let workflow_path = self._get_workflow_path(&workflow.name);
         println!("Saving workflow to: {}", workflow_path.display());
         
-        // Create workflows directory if it doesn't exist
-        if let Some(parent) = workflow_path.parent() {
-            println!("Creating directory: {}", parent.display());
-            create_dir_all(parent)?;
-        }
-        
-        // Save workflow
         let workflow_json = serde_json::to_string_pretty(workflow)?;
-        println!("Writing workflow JSON: {}", workflow_json);
         fs::write(workflow_path, workflow_json)?;
         
         Ok(())
     }
-
+    
     /// Load a workflow
-    pub fn load_workflow(&self, name: &str) -> Result<Workflow> {
-        let workflow_path = self.get_workflow_path(name);
+    pub fn _load_workflow(&self, name: &str) -> Result<Workflow> {
+        let workflow_path = self._get_workflow_path(name);
         let workflow_json = fs::read_to_string(&workflow_path)
             .with_context(|| format!("Failed to read workflow '{}'", name))?;
+        
         let workflow: Workflow = serde_json::from_str(&workflow_json)
             .with_context(|| format!("Failed to parse workflow '{}'", name))?;
+        
         Ok(workflow)
     }
-
+    
     /// Delete a workflow
-    pub fn delete_workflow(&self, name: &str) -> Result<()> {
-        let workflow_path = self.get_workflow_path(name);
+    pub fn _delete_workflow(&self, name: &str) -> Result<()> {
+        let workflow_path = self._get_workflow_path(name);
         if workflow_path.exists() {
             fs::remove_file(&workflow_path)?;
             Ok(())
@@ -274,28 +274,33 @@ impl StorageManager {
             Err(anyhow!("Workflow '{}' not found", name))
         }
     }
-
+    
     /// List all workflows
-    pub fn list_workflows(&self) -> Result<Vec<Workflow>> {
-        let workflows_dir = self.base_path.join("data/workflows");
-        
-        if !workflows_dir.exists() {
+    pub fn _list_workflows(&self) -> Result<Vec<Workflow>> {
+        let dir = self.base_path.join("data/workflows");
+        if !dir.exists() {
             return Ok(Vec::new());
         }
-
+        
         let mut workflows = Vec::new();
-        for entry in fs::read_dir(workflows_dir)? {
+        
+        for entry in fs::read_dir(dir)? {
             let entry = entry?;
             let path = entry.path();
             
-            if path.is_file() && path.extension().map_or(false, |ext| ext == "workflow") {
-                let workflow_json = fs::read_to_string(&path)?;
-                let workflow: Workflow = serde_json::from_str(&workflow_json)?;
-                workflows.push(workflow);
+            if path.is_file() && path.extension().and_then(|ext| ext.to_str()) == Some("json") {
+                if let Ok(content) = fs::read_to_string(&path) {
+                    match serde_json::from_str::<Workflow>(&content) {
+                        Ok(workflow) => workflows.push(workflow),
+                        Err(err) => log::warn!("Failed to parse workflow at {}: {}", path.display(), err),
+                    }
+                }
             }
         }
-
+        
+        // Sort by name
         workflows.sort_by(|a, b| a.name.cmp(&b.name));
+        
         Ok(workflows)
     }
 
@@ -331,10 +336,15 @@ impl StorageManager {
         Ok(results)
     }
     
-    /// Load entry content only
-    pub fn load_entry_content(&self, id: &str, backpack: Option<&str>) -> Result<String> {
+    /// Load the content of an entry
+    pub fn _load_entry_content(&self, id: &str, backpack: Option<&str>) -> Result<String> {
         let content_path = self.get_entry_content_path(id, backpack);
-        fs::read_to_string(&content_path)
-            .with_context(|| format!("Failed to read entry content from {}", content_path.display()))
+        
+        if !content_path.exists() {
+            return Err(anyhow!("Content not found for entry '{}'", id));
+        }
+        
+        let content = fs::read_to_string(&content_path)?;
+        Ok(content)
     }
 } 

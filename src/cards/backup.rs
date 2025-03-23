@@ -9,7 +9,6 @@ use anyhow::{Result, Context};
 use serde::{Serialize, Deserialize};
 
 use crate::cards::{Card, CardConfig, CardCommand};
-use crate::storage::StorageManager;
 
 /// Configuration for the backup card
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -81,8 +80,8 @@ pub struct BackupCard {
     /// Configuration for the card
     config: BackupCardConfig,
     
-    /// Path to the Pocket data directory
-    data_dir: PathBuf,
+    /// Path to the Pocket data directory (kept for future use)
+    _data_dir: PathBuf,
 }
 
 impl BackupCard {
@@ -93,7 +92,7 @@ impl BackupCard {
             version: env!("CARGO_PKG_VERSION").to_string(),
             description: "Provides functionality for backing up and restoring snippets and repositories".to_string(),
             config: BackupCardConfig::default(),
-            data_dir: data_dir.as_ref().to_path_buf(),
+            _data_dir: data_dir.as_ref().to_path_buf(),
         }
     }
     
@@ -112,7 +111,7 @@ impl BackupCard {
             .context("Failed to create backup directory")?;
         
         // Copy the data directory to the backup directory
-        self.copy_directory(&self.data_dir, &backup_dir)
+        self.copy_directory(&self._data_dir, &backup_dir)
             .context("Failed to copy data directory")?;
         
         // Count snippets and repositories
@@ -168,15 +167,15 @@ impl BackupCard {
             .context("Failed to create backup directory for current state")?;
         
         // Copy the current data directory to the backup directory
-        self.copy_directory(&self.data_dir, &current_backup_dir)
+        self.copy_directory(&self._data_dir, &current_backup_dir)
             .context("Failed to backup current state")?;
         
         // Clear the current data directory
-        self.clear_directory(&self.data_dir)
+        self.clear_directory(&self._data_dir)
             .context("Failed to clear data directory")?;
         
         // Copy the backup to the data directory
-        self.copy_directory(&backup_dir, &self.data_dir)
+        self.copy_directory(&backup_dir, &self._data_dir)
             .context("Failed to restore backup")?;
         
         Ok(())
@@ -363,21 +362,17 @@ impl Card for BackupCard {
         &self.version
     }
     
-    fn description(&self) -> &str {
+    fn _description(&self) -> &str {
         &self.description
     }
     
-    fn initialize(&mut self, config: &CardConfig) -> Result<()> {
-        // Load card-specific configuration
-        if let Some(backup_config) = config.options.get("backup") {
-            if let Ok(parsed_config) = serde_json::from_value::<BackupCardConfig>(backup_config.clone()) {
-                self.config = parsed_config;
+    fn _initialize(&mut self, config: &CardConfig) -> Result<()> {
+        // If there are options in the card config, try to parse them
+        if let Some(options_value) = config.options.get("backup") {
+            if let Ok(options) = serde_json::from_value::<BackupCardConfig>(options_value.clone()) {
+                self.config = options;
             }
         }
-        
-        // Ensure the backup directory exists
-        fs::create_dir_all(&self.config.backup_dir)
-            .context("Failed to create backup directory")?;
         
         Ok(())
     }
@@ -385,7 +380,7 @@ impl Card for BackupCard {
     fn execute(&self, command: &str, args: &[String]) -> Result<()> {
         match command {
             "backup" => {
-                let description = args.get(0).map(|s| s.as_str()).unwrap_or("Manual backup");
+                let description = args.first().map(|s| s.as_str()).unwrap_or("Manual backup");
                 let metadata = self.create_backup(description)?;
                 println!("Backup created: {}", metadata.id);
                 println!("Description: {}", metadata.description);

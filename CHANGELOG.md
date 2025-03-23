@@ -2,6 +2,17 @@
 
 All notable changes to Pocket will be documented in this file using our letter-based versioning system.
 
+## v-pocket-R1
+
+### Added
+- Revamped our core implementations
+
+### Changed
+- Deleted VCS capability for now
+
+### Notes
+We reset the counter to R1 as we radically change the core implementations of pocket.
+
 ## v-pocket-R3C/B2-ncR2< (04152025 - Shell Integration)
 
 ### Added

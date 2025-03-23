@@ -106,8 +106,8 @@ impl Entry {
 }
 
 impl Backpack {
-    /// Create a new backpack
-    pub fn new(name: String, description: Option<String>) -> Self {
+    /// Create a new backpack (unused)
+    pub fn _new(name: String, description: Option<String>) -> Self {
         Self {
             name,
             description,
@@ -117,8 +117,8 @@ impl Backpack {
 }
 
 impl Workflow {
-    /// Create a new workflow
-    pub fn new(name: String, commands: Vec<WorkflowCommand>) -> Self {
+    /// Create a new workflow (unused)
+    pub fn _new(name: String, commands: Vec<WorkflowCommand>) -> Self {
         Self {
             name,
             commands,
@@ -128,8 +128,8 @@ impl Workflow {
 }
 
 impl WorkflowCommand {
-    /// Parse a command string into a WorkflowCommand
-    pub fn parse(command_str: &str) -> Result<Self> {
+    /// Parse a command string into a WorkflowCommand (unused)
+    pub fn _parse(command_str: &str) -> Result<Self> {
         let command_str = command_str.trim();
         if command_str.is_empty() {
             return Err(anyhow::anyhow!("Empty command"));

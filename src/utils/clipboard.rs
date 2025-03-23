@@ -68,10 +68,10 @@ pub fn read_clipboard() -> Result<String> {
     }
 }
 
-/// Write content to the system clipboard
+/// Write content to the system clipboard (unused)
 /// 
 /// Supports macOS (pbcopy), Windows (PowerShell), and Linux (xclip/wl-copy)
-pub fn write_clipboard(content: &str) -> Result<()> {
+pub fn _write_clipboard(content: &str) -> Result<()> {
     #[cfg(target_os = "macos")]
     {
         let mut child = Command::new("pbcopy")
@@ -172,7 +172,7 @@ mod tests {
         let test_content = "Test clipboard content";
         
         // Write to clipboard
-        write_clipboard(test_content).expect("Failed to write to clipboard");
+        _write_clipboard(test_content).expect("Failed to write to clipboard");
         
         // Read from clipboard
         let read_content = read_clipboard().expect("Failed to read from clipboard");

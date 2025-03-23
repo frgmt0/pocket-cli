@@ -24,9 +24,9 @@ pub enum PocketError {
     #[error("Hook error: {0}")]
     Hook(String),
 
-    /// Error related to file operations
+    /// Error related to file operations (unused)
     #[error("File error: {source}")]
-    File {
+    _File {
         #[source]
         source: std::io::Error,
         path: PathBuf,
@@ -40,13 +40,13 @@ pub enum PocketError {
     #[error("Search error: {0}")]
     Search(String),
 
-    /// User canceled an operation
+    /// User canceled an operation (unused)
     #[error("Operation canceled by user")]
-    Canceled,
+    _Canceled,
 
-    /// Missing permission
+    /// Missing permission (unused)
     #[error("Permission denied: {0}")]
-    PermissionDenied(String),
+    _PermissionDenied(String),
 
     /// Other unexpected errors
     #[error("Unexpected error: {0}")]
@@ -58,40 +58,40 @@ pub type PocketResult<T> = std::result::Result<T, PocketError>;
 
 /// Helper functions for converting errors
 pub trait IntoAnyhow<T> {
-    fn into_anyhow(self) -> anyhow::Result<T>;
+    fn _into_anyhow(self) -> anyhow::Result<T>;
 }
 
 impl<T> IntoAnyhow<T> for PocketResult<T> {
-    fn into_anyhow(self) -> anyhow::Result<T> {
+    fn _into_anyhow(self) -> anyhow::Result<T> {
         self.map_err(|e| anyhow::anyhow!(e.to_string()))
     }
 }
 
 /// Helper trait for converting errors to PocketError
 pub trait IntoPocketError<T> {
-    fn storage_err(self, msg: &str) -> PocketResult<T>;
-    fn entry_err(self, msg: &str) -> PocketResult<T>;
-    fn card_err(self, msg: &str) -> PocketResult<T>;
-    fn hook_err(self, msg: &str) -> PocketResult<T>;
+    fn _storage_err(self, msg: &str) -> PocketResult<T>;
+    fn _entry_err(self, msg: &str) -> PocketResult<T>;
+    fn _card_err(self, msg: &str) -> PocketResult<T>;
+    fn _hook_err(self, msg: &str) -> PocketResult<T>;
     fn config_err(self, msg: &str) -> PocketResult<T>;
-    fn search_err(self, msg: &str) -> PocketResult<T>;
-    fn other_err(self, msg: &str) -> PocketResult<T>;
+    fn _search_err(self, msg: &str) -> PocketResult<T>;
+    fn _other_err(self, msg: &str) -> PocketResult<T>;
 }
 
 impl<T, E: std::error::Error + Send + Sync + 'static> IntoPocketError<T> for Result<T, E> {
-    fn storage_err(self, msg: &str) -> PocketResult<T> {
+    fn _storage_err(self, msg: &str) -> PocketResult<T> {
         self.map_err(|e| PocketError::Storage(format!("{}: {}", msg, e)))
     }
 
-    fn entry_err(self, msg: &str) -> PocketResult<T> {
+    fn _entry_err(self, msg: &str) -> PocketResult<T> {
         self.map_err(|e| PocketError::Entry(format!("{}: {}", msg, e)))
     }
 
-    fn card_err(self, msg: &str) -> PocketResult<T> {
+    fn _card_err(self, msg: &str) -> PocketResult<T> {
         self.map_err(|e| PocketError::Card(format!("{}: {}", msg, e)))
     }
 
-    fn hook_err(self, msg: &str) -> PocketResult<T> {
+    fn _hook_err(self, msg: &str) -> PocketResult<T> {
         self.map_err(|e| PocketError::Hook(format!("{}: {}", msg, e)))
     }
 
@@ -99,11 +99,11 @@ impl<T, E: std::error::Error + Send + Sync + 'static> IntoPocketError<T> for Res
         self.map_err(|e| PocketError::Config(format!("{}: {}", msg, e)))
     }
 
-    fn search_err(self, msg: &str) -> PocketResult<T> {
+    fn _search_err(self, msg: &str) -> PocketResult<T> {
         self.map_err(|e| PocketError::Search(format!("{}: {}", msg, e)))
     }
 
-    fn other_err(self, msg: &str) -> PocketResult<T> {
+    fn _other_err(self, msg: &str) -> PocketResult<T> {
         self.map_err(|e| PocketError::Other(format!("{}: {}", msg, e)))
     }
 } 

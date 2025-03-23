@@ -1,6 +1,6 @@
 use crate::cards::{Card, CardConfig, CardCommand};
 use crate::utils::{read_clipboard, summarize_text, SummaryMetadata};
-use crate::models::{Entry, ContentType};
+use crate::models::Entry;
 use crate::storage::StorageManager;
 use anyhow::{Result, anyhow, Context};
 use std::path::PathBuf;
@@ -20,8 +20,8 @@ pub struct SnippetCard {
     /// Configuration for the card
     config: SnippetCardConfig,
     
-    /// Path to the Pocket data directory
-    data_dir: PathBuf,
+    /// Path to the Pocket data directory (kept for future use)
+    _data_dir: PathBuf,
 }
 
 /// Configuration for the snippet card
@@ -59,7 +59,7 @@ impl SnippetCard {
             version: env!("CARGO_PKG_VERSION").to_string(),
             description: "Enhanced snippet functionality with clipboard and summarization features".to_string(),
             config: SnippetCardConfig::default(),
-            data_dir: data_dir.as_ref().to_path_buf(),
+            _data_dir: data_dir.as_ref().to_path_buf(),
         }
     }
     
@@ -275,15 +275,15 @@ impl Card for SnippetCard {
         &self.version
     }
     
-    fn description(&self) -> &str {
+    fn _description(&self) -> &str {
         &self.description
     }
     
-    fn initialize(&mut self, config: &CardConfig) -> Result<()> {
-        // Load configuration if available
-        if let Some(options) = &config.options.get("config") {
-            if let Ok(card_config) = serde_json::from_value::<SnippetCardConfig>((*options).clone()) {
-                self.config = card_config;
+    fn _initialize(&mut self, config: &CardConfig) -> Result<()> {
+        // If there are options in the card config, try to parse them
+        if let Some(options_value) = config.options.get("snippet") {
+            if let Ok(options) = serde_json::from_value::<SnippetCardConfig>(options_value.clone()) {
+                self.config = options;
             }
         }
         

@@ -9,12 +9,10 @@ pub mod core;
 pub mod blend;
 
 use std::collections::HashMap;
-use std::path::{Path, PathBuf};
-use std::fs::{self, File};
-use std::io::{Read, Write};
+use std::path::Path;
+use std::fs;
 use serde::{Deserialize, Serialize};
-use anyhow::{Result, Context, anyhow, bail};
-use dirs;
+use anyhow::{Result, anyhow, bail};
 
 /// Trait that all cards must implement
 pub trait Card: Send + Sync {
@@ -25,10 +23,10 @@ pub trait Card: Send + Sync {
     fn version(&self) -> &str;
     
     /// Returns a description of the card
-    fn description(&self) -> &str;
+    fn _description(&self) -> &str;
     
     /// Initializes the card with the given configuration
-    fn initialize(&mut self, config: &CardConfig) -> Result<()>;
+    fn _initialize(&mut self, config: &CardConfig) -> Result<()>;
     
     /// Executes a command provided by the card
     fn execute(&self, command: &str, args: &[String]) -> Result<()>;
@@ -251,7 +249,7 @@ impl CardManager {
     }
     
     /// Registers a card
-    fn register_card(&mut self, card: Box<dyn Card>) -> Result<()> {
+    fn _register_card(&mut self, card: Box<dyn Card>) -> Result<()> {
         let name = card.name().to_string();
         
         // Check if the card is already registered
@@ -372,8 +370,8 @@ impl CardManager {
         Ok(())
     }
     
-    /// Checks if a card with the given name exists
-    pub fn card_exists(&self, name: &str) -> bool {
+    /// Checks if a card exists in the registry
+    pub fn _card_exists(&self, name: &str) -> bool {
         self.cards.contains_key(name)
     }
     
@@ -765,59 +763,5 @@ impl Drop for CardManager {
     fn drop(&mut self) {
         // Attempt to clean up cards when the manager is dropped
         let _ = self.cleanup();
-    }
-}
-
-// A placeholder card for testing
-struct PlaceholderCard {
-    name: String,
-    version: String,
-    description: String,
-}
-
-impl PlaceholderCard {
-    fn new(name: String) -> Self {
-        Self {
-            name,
-            version: "0.1.0".to_string(),
-            description: "A placeholder card".to_string(),
-        }
-    }
-}
-
-impl Card for PlaceholderCard {
-    fn name(&self) -> &str {
-        &self.name
-    }
-    
-    fn version(&self) -> &str {
-        &self.version
-    }
-    
-    fn description(&self) -> &str {
-        &self.description
-    }
-    
-    fn initialize(&mut self, _config: &CardConfig) -> Result<()> {
-        Ok(())
-    }
-    
-    fn execute(&self, command: &str, args: &[String]) -> Result<()> {
-        println!("Executing command {} with args {:?} on placeholder card {}", command, args, self.name);
-        Ok(())
-    }
-    
-    fn commands(&self) -> Vec<CardCommand> {
-        vec![
-            CardCommand {
-                name: "hello".to_string(),
-                description: "A simple hello command".to_string(),
-                usage: format!("pocket cards execute {} hello [args...]", self.name),
-            },
-        ]
-    }
-    
-    fn cleanup(&mut self) -> Result<()> {
-        Ok(())
     }
 } 

@@ -1,8 +1,8 @@
 use crate::cli::{Cli, Commands, CardOperation, BlendCommands};
 use crate::cards::CardManager;
-use crate::errors::{PocketError, PocketResult, IntoPocketError};
+use crate::errors::{PocketError, PocketResult};
 use crate::logging;
-use log::{debug, info, warn, error, LevelFilter};
+use log::{debug, LevelFilter};
 use std::path::PathBuf;
 use colored::Colorize;
 
@@ -203,7 +203,7 @@ pub fn handle_command(cli: Cli) -> PocketResult<()> {
                         println!("    Usage: {}", cmd.usage);
                     }
                 }
-            } else if let Some(cmd) = command {
+            } else if let Some(_command) = command {
                 // Show help for a specific command
                 // TODO: Implement this with card system
                 logging::warning("Command-specific help not yet implemented in the card system");
@@ -214,13 +214,13 @@ pub fn handle_command(cli: Cli) -> PocketResult<()> {
             }
         },
         
-        Commands::Lint { workflow } => {
+        Commands::Lint { workflow: _ } => {
             // TODO: Migrate to card system
             logging::warning("Lint command not yet migrated to the card system");
             logging::warning("This will be implemented in a future version");
         },
         
-        Commands::DeleteWorkflow { name } => {
+        Commands::DeleteWorkflow { name: _ } => {
             // TODO: Migrate to card system
             logging::warning("DeleteWorkflow command not yet migrated to the card system");
             logging::warning("This will be implemented in a future version");
@@ -250,7 +250,7 @@ pub fn handle_command(cli: Cli) -> PocketResult<()> {
             logging::warning("This will be improved in a future version");
         },
         
-        Commands::Execute { name, args } => {
+        Commands::Execute { name: _, args: _ } => {
             // TODO: Migrate to card system
             logging::warning("Execute command not yet migrated to the card system");
             logging::warning("This will be implemented in a future version");
@@ -354,7 +354,7 @@ pub fn handle_command(cli: Cli) -> PocketResult<()> {
                     println!("    pocket cards remove     - Remove a card");
                     println!("    pocket cards build      - Build a card");
                     println!("    pocket cards create     - Create a new card template");
-                    println!("");
+                    println!();
                     println!("  For more information, run: pocket help cards");
                 }
             }
@@ -405,12 +405,12 @@ pub fn handle_command(cli: Cli) -> PocketResult<()> {
                         println!("  Use the following syntax to blend shell scripts:");
                         println!("    pocket blend <script_file>           - Add a shell extension (sourced at shell startup)");
                         println!("    pocket blend --executable <script>   - Add an executable hook command (run with @name)");
-                        println!("");
+                        println!();
                         println!("  Other commands:");
                         println!("    pocket blend list                    - List all installed hooks");
                         println!("    pocket blend edit <hook_name>        - Edit an existing hook");
                         println!("    pocket blend run <hook_name> [args]  - Run a hook directly");
-                        println!("");
+                        println!();
                         println!("  For more information, run: pocket help blend");
                     }
                 }
@@ -426,7 +426,7 @@ fn print_custom_help() {
     println!("{}", logging::header("Pocket CLI Help"));
     println!("A CLI tool for saving, organizing, and retrieving code snippets");
     println!("with integrated version control and shell integration");
-    println!("");
+    println!();
     
     println!("{}", logging::header("Core Commands:"));
     println!("  {} - Add content to your pocket storage", logging::key("add"));
@@ -441,18 +441,18 @@ fn print_custom_help() {
     println!("  {} - Display version information", logging::key("version"));
     println!("  {} - Edit an existing entry", logging::key("edit"));
     println!("  {} - Execute a script", logging::key("execute"));
-    println!("");
+    println!();
     
     println!("{}", logging::header("Extension Commands:"));
     println!("  {} - Manage extensions/cards", logging::key("cards"));
     println!("  {} - Blend shell scripts into your environment", logging::key("blend"));
-    println!("");
+    println!();
     
     println!("For more detailed help on a specific command, run:");
     println!("  pocket help <command>");
-    println!("");
+    println!();
     
     println!("To see all extensions and their commands, run:");
     println!("  pocket help --extensions");
-    println!("");
+    println!();
 } 

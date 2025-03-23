@@ -1,5 +1,4 @@
-use clap::{Parser, Subcommand, Args, ArgAction};
-use std::path::PathBuf;
+use clap::{Parser, Subcommand, ArgAction};
 
 pub mod handler;
 

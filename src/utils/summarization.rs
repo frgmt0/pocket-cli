@@ -128,7 +128,7 @@ fn fallback_summarize_text(text: &str) -> Result<String> {
     // Simple extractive summarization based on sentence importance
     
     // Split into sentences
-    let sentences: Vec<&str> = text.split(|c| c == '.' || c == '!' || c == '?')
+    let sentences: Vec<&str> = text.split(['.', '!', '?'])
         .filter(|s| !s.trim().is_empty())
         .collect();
     

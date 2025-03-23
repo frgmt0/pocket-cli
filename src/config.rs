@@ -1,14 +1,9 @@
-use crate::errors::{PocketError, PocketResult, IntoPocketError};
+use crate::errors::{PocketResult, IntoPocketError};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
-use std::sync::{Arc, Mutex};
-use once_cell::sync::OnceCell;
 use log::{info, debug, error};
-
-/// Global configuration instance
-static CONFIG: OnceCell<Arc<Mutex<ConfigManager>>> = OnceCell::new();
 
 /// Configuration for the Pocket CLI
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -96,7 +91,7 @@ pub struct ConfigManager {
     config_path: PathBuf,
     
     /// Path to the data directory
-    data_dir: PathBuf,
+    _data_dir: PathBuf,
     
     /// Dirty flag to indicate if the config needs to be saved
     dirty: bool,
@@ -104,7 +99,7 @@ pub struct ConfigManager {
 
 impl ConfigManager {
     /// Create a new configuration manager
-    pub fn new(data_dir: impl AsRef<Path>) -> PocketResult<Self> {
+    pub fn _new(data_dir: impl AsRef<Path>) -> PocketResult<Self> {
         let data_dir = data_dir.as_ref().to_path_buf();
         let config_path = data_dir.join("config.toml");
         
@@ -135,7 +130,7 @@ impl ConfigManager {
         let manager = Self {
             config,
             config_path,
-            data_dir,
+            _data_dir: data_dir,
             dirty: false,
         };
         
@@ -148,24 +143,24 @@ impl ConfigManager {
     }
     
     /// Get the configuration
-    pub fn get_config(&self) -> Config {
+    pub fn _get_config(&self) -> Config {
         self.config.clone()
     }
     
     /// Update the configuration
-    pub fn update_config(&mut self, config: Config) -> PocketResult<()> {
+    pub fn _update_config(&mut self, config: Config) -> PocketResult<()> {
         self.config = config;
         self.dirty = true;
         Ok(())
     }
     
     /// Get a value from the card configuration
-    pub fn get_card_config(&self, card_name: &str) -> Option<serde_json::Value> {
+    pub fn _get_card_config(&self, card_name: &str) -> Option<serde_json::Value> {
         self.config.cards.get(card_name).cloned()
     }
     
     /// Set a value in the card configuration
-    pub fn set_card_config(&mut self, card_name: &str, config: serde_json::Value) -> PocketResult<()> {
+    pub fn _set_card_config(&mut self, card_name: &str, config: serde_json::Value) -> PocketResult<()> {
         self.config.cards.insert(card_name.to_string(), config);
         self.dirty = true;
         Ok(())
@@ -190,24 +185,19 @@ impl ConfigManager {
         Ok(())
     }
     
-    /// Get the data directory
-    pub fn get_data_dir(&self) -> PathBuf {
-        self.data_dir.clone()
-    }
-    
     /// Get the hooks directory
-    pub fn get_hooks_dir(&self) -> PathBuf {
+    pub fn _get_hooks_dir(&self) -> PathBuf {
         match &self.config.hooks_dir {
             Some(dir) => dir.clone(),
-            None => self.data_dir.join("hooks"),
+            None => self._data_dir.join("hooks"),
         }
     }
     
     /// Get the bin directory
-    pub fn get_bin_dir(&self) -> PathBuf {
+    pub fn _get_bin_dir(&self) -> PathBuf {
         match &self.config.bin_dir {
             Some(dir) => dir.clone(),
-            None => self.data_dir.join("bin"),
+            None => self._data_dir.join("bin"),
         }
     }
 }
@@ -221,35 +211,4 @@ impl Drop for ConfigManager {
             }
         }
     }
-}
-
-/// Initialize the global configuration
-pub fn init(data_dir: impl AsRef<Path>) -> PocketResult<()> {
-    let config_manager = ConfigManager::new(data_dir)?;
-    let _ = CONFIG.set(Arc::new(Mutex::new(config_manager)));
-    Ok(())
-}
-
-/// Get the global configuration manager
-pub fn get() -> PocketResult<Arc<Mutex<ConfigManager>>> {
-    match CONFIG.get() {
-        Some(config) => Ok(config.clone()),
-        None => Err(PocketError::Config("Configuration not initialized".to_string())),
-    }
-}
-
-/// Get a copy of the current configuration
-pub fn get_config() -> PocketResult<Config> {
-    let config = get()?;
-    let config_guard = config.lock()
-        .map_err(|_| PocketError::Config("Failed to lock config".to_string()))?;
-    Ok(config_guard.get_config())
-}
-
-/// Save the current configuration
-pub fn save() -> PocketResult<()> {
-    let config = get()?;
-    let config_guard = config.lock()
-        .map_err(|_| PocketError::Config("Failed to lock config".to_string()))?;
-    config_guard.save()
 } 
