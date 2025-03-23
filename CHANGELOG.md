@@ -2,7 +2,16 @@
 
 All notable changes to Pocket will be documented in this file using our letter-based versioning system.
 
-## v-pocket-R1
+## v-pocket-R1-f<Origins>
+
+### Changed
+- A cleaned codebase with removed unused code/dead code
+- No functionality changes
+
+### Notes
+- Fully compatible with [Origins](##_v-pocket-R1_(Origins))
+
+## v-pocket-R1 (Origins)
 
 ### Added
 - Revamped our core implementations
